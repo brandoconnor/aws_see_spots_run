@@ -45,3 +45,4 @@ example:
 4. Commit your awesome changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create a new Pull Request and tell us about it your changes.
+
