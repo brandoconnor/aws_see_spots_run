@@ -11,9 +11,9 @@ A cookbook to manage AWS spot EC2 instances within autoscaling groups via Chef, 
 * Tested on Amazon Linux
 
 ## Attributes
-- `node['AWS_see_spots_run']['spot_kill_interval']` - 
-- `node['AWS_see_spots_run']['adjust_AZs_interval']` - 
-- `node['AWS_see_spots_run']['adjust_prices_interval']` - 
+- `node['AWS_see_spots_run']['spot_request_killer_interval']` - sets the interval (in minutes) to run the spot request killer
+- `node['AWS_see_spots_run']['ASG_adjuster_interval']` - sets the interval (in minutes) to move ASGs away from AZs where multiple failures are seen
+- `node['AWS_see_spots_run']['LC_price_adjuster'_interval']` - sets the interval (in minutes) to run the launch configuration price adjuster
 - `TODO: include a hash attribute to give caps to prices for instance types per region`
 
 ## Recipes
@@ -24,6 +24,16 @@ No-op, assuming cookbook inclusion in a custom wrapper.
 ### cronjobs
 
 Drops files on the system and installs cronjobs.
+
+## Files
+### spot_request_killer.py
+
+### ASG_adjuster.py
+
+### price_adjuster.py
+
+### ec2instancespricing.py
+
 
 ## Usage
 
