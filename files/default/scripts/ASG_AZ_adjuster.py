@@ -14,6 +14,7 @@ import sys
 from AWS_see_spots_run_common import *
 from boto import utils, ec2
 from boto.ec2 import autoscale
+from boto.ec2.autoscale import Tag # ?
 from boto.exception import EC2ResponseError, BotoServerError
 from collections import Counter
 from datetime import datetime, timedelta
@@ -25,6 +26,7 @@ def main(args):
             as_conn = boto.ec2.autoscale.connect_to_region(region.name)
             ec2_conn = boto.ec2.connect_to_region(region.name)
             all_ASGs = as_conn.get_all_groups()
+            # TODO: a lot of this work can be replaced with looking for ASGs with tags provided
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
             for LC in spot_LCs:
                 try: 
