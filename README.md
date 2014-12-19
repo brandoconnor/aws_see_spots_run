@@ -28,12 +28,15 @@ Drops files on the system and installs cronjobs.
 ## Files
 ### spot_request_killer.py
 
-### ASG_adjuster.py
+### ASG_AZ_adjuster.py
 
 ### price_adjuster.py
 
+### ASG_tagger.py
+
 ### ec2instancespricing.py
 
+### AWS_see_spots_run_common
 
 ## Usage
 
@@ -56,3 +59,9 @@ example:
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create a new Pull Request and tell us about it your changes.
 
+# TODO
+
+## add code for ASG tagger
+## add code for LC price adjuster
+## introduce dry run capability to each script
+## rubocop, food critic, ChefSpec, testing, ect

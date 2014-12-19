@@ -19,8 +19,10 @@
 #
 #
 
-[ 'ASG_AZ_adjuster.py', 'spot_request_killer.py' , 'ec2instancespricing.py'].each do |script|
-  cookbook_file node['AWS_see_spots_run']['exec_path']
+remote_directory "scripts" do
+    path            node['AWS_see_spots_run']['exec_path']
+    files_mode      0755
+    files_backup    0
 end
 
 cron "ASG_AZ_adjuster" do
@@ -35,5 +37,10 @@ end
 
 #cron "price_adjuster" do
 #  command "#{node['AWS_see_spots_run']['exec_path']}price_adjuster.py "
+#  minute node['AWS_see_spots_run'][ 'price_adjuster_interval']
+#end
+#
+#cron "ASG_tagger" do
+#  command "#{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py "
 #  minute node['AWS_see_spots_run'][ 'price_adjuster_interval']
 #end
