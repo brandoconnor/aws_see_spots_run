@@ -8,7 +8,7 @@ A cookbook to manage AWS spot EC2 instances within autoscaling groups via Chef, 
 
 ## Platforms
 
-* Tested on Amazon Linux
+* Tested on Amazon Linux with Chef 11.12.8
 
 ## Attributes
 - `node['AWS_see_spots_run']['spot_request_killer_interval']` - sets the interval (in minutes) to run the spot request killer
@@ -36,7 +36,7 @@ Drops files on the system and installs cronjobs.
 
 ### ec2instancespricing.py
 
-### AWS_see_spots_run_common
+### AWS_see_spots_run_common.py
 
 ## Usage
 
