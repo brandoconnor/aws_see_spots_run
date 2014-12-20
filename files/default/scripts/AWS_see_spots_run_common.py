@@ -1,9 +1,11 @@
 #!/usr/bin/env python27
 '''
-Common functions used throughout this codebase.
+Common functions used throughout this cookbook's codebase.
 '''
 from datetime import datetime, timedelta
 import sys
+import ast
+
 
 def dry_run_necessaries(dry_run, verbose):
     if dry_run:
@@ -17,6 +19,16 @@ def print_verbose(message, verbose):
         print message
 
 
+def handle_exception(exception):
+    exc_traceback = sys.exc_info()[2]
+    print_verbose("Exception caught on line %s of %s: %s" % (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)), True)
+
+
+def get_tag_list(ASG, tag_key):
+    # tag values always come back as unicode. This will return a native list.
+    return ast.literal_eval([ t for t in ASG.tags if t.key == tag_key ][0].value)
+
+
 def get_AZs(instance_type, bid_price, product_description, ec2_conn):
     start_time = datetime.utcnow() - timedelta(minutes=5)
     start_time = start_time.isoformat()
@@ -26,7 +38,3 @@ def get_AZs(instance_type, bid_price, product_description, ec2_conn):
     AZs = [ sp.availability_zone for sp in prices if sp.price < bid_price ]
     return list(set(AZs))
 
-
-def handle_exception(exception):
-    exc_traceback = sys.exc_info()[2]
-    print_verbose("Exception caught on line %s of %s: %s" % (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)), True)
