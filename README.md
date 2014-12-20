@@ -61,7 +61,13 @@ example:
 
 # TODO
 
-## add code for ASG tagger
 ## add code for LC price adjuster
 ## introduce dry run capability to each script
 ## rubocop, food critic, ChefSpec, testing, ect
+
+# Sticky considerations
+## AZs with ELBs, do we need to change their AZs also?
+
+# potential features:
+## instance_type_adjuster
+

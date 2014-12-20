@@ -29,6 +29,7 @@ def main(args):
                         request.cancel()
                     else:
                         print_verbose("PSYCH! Dry run.", verbose)
+                    #TODO: update tag for AZ
                 else:
                     print_verbose("Request %s not older than %s minutes. Continuing..." % (request.id, str(args.minutes)), verbose)
             print_verbose("Region %s pass complete." % region.name, verbose)

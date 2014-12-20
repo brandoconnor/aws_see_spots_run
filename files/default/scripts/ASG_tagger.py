@@ -2,14 +2,23 @@
 #XXX test on various python distributions
 '''
 Keys should be:
-- SSR_enabled = True/False - can be forced to False in attrs. Checked every time.
-- AZ_exclusions/valid_AZs = find a way to list AZs to never include (verified and reset every time)
-- instance_types = [ original_first_choice, m1.next_choice, ect. ] # json or ordered list? maybe give default?
-- original_price = .10 (price during initial tagging - only set once)
-- max_price = 4x ondemand (determined by either json blob OR max possible price)
-- last_mod_time = set when change happens (across all code and on tag_init)
-- last_mod_type = action taken last
-- spot_LC = launch_config_name or id (when this changes, update all other tags, disable SSR if no longer spot)
+SSR_enabled = True/False - can be forced to False in attrs. Checked every time.
+AZ_info = { 'A':{see individual_AZ below},'B':{},'C':{},'D':{},'E':{} }
+original_bid = .10 (price during initial tagging - only set once)
+max_bid = determined by either json in attributes OR on demand price (verfied each pass)
+spot_LC_name = launch_config_name (if this changes, update all other tags, disable SSR if no longer spot)
+demand_expiration = epoch_time_to_check_if_demand_can_be_killed (set in attr default 55m)
+min_azs = num (attr set default=3)
+
+also possible:
+<individual_AZ> = { 'use':True,'health':[1, 0, 1],'last_update':'epoch'}
+
+Are these needed?
+last_mod_time = set when change happens (across all code and on tag_init)
+last_mod_type = action taken last
+
+Potential feature:
+instance_types = [ original_first_choice, m1.next_choice, ect. ] # json or ordered list? maybe give default?
 '''
 import argparse
 import ast
@@ -19,7 +28,7 @@ import sys
 from AWS_see_spots_run_common import *
 from boto import utils, ec2
 from boto.ec2 import autoscale
-from boto.ec2.autoscale import Tag # ?
+from boto.ec2.autoscale import Tag
 from boto.exception import EC2ResponseError
 
 
@@ -38,7 +47,8 @@ def main(args):
                         # this group does not have the SSR_enabled tag indicator
                         ## default it to True and set all tags
                         print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % (as_group.name) , verbose)
-                        pass
+                        for k,v in [("",""), ("",""), ("","")]
+                            create_tag()
                     elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'False' ]:
                         # a group that we shouldn't manage
                         print_verbose('Not managing group as SSR_enabled set to false.' % as_group.name, verbose)
@@ -61,6 +71,15 @@ def main(args):
             handle_exception(e)
             return 1
 
+
+def get_health(as_conn as_group, AZ):
+    # returns True or False depending on health (2/3 health checks == 0)
+    pass
+
+
+def set_health(as_conn, as_group, AZ, status):
+    # like exit codes 0 is healthy, 1 is unhealthy
+    pass
 
 
 def create_tag(as_conn, as_group, key, value):
