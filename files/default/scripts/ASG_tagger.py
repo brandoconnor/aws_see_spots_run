@@ -1,5 +1,4 @@
 #!/usr/bin/env python27
-#XXX test on various python distributions
 '''
 Keys should be:
 SSR_enabled = True/False - can be forced to False in attrs. Checked every time.
@@ -23,10 +22,10 @@ instance_types = [ original_first_choice, m1.next_choice, ect. ] # json or order
 import argparse
 import ast
 import boto
-import boto.utils
 import sys
 from AWS_see_spots_run_common import *
-from boto import utils, ec2
+from ec2instancespricing import get_ec2_ondemand_instances_prices
+from boto import ec2
 from boto.ec2 import autoscale
 from boto.ec2.autoscale import Tag
 from boto.exception import EC2ResponseError
@@ -47,7 +46,16 @@ def main(args):
                         # this group does not have the SSR_enabled tag indicator
                         ## default it to True and set all tags
                         print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % (as_group.name) , verbose)
-                        for k,v in [("",""), ("",""), ("","")]
+                        config_dict = {
+                                "SSR_enabled": True,
+                                "AZ_info": check_group_AZs(as_conn,as_group.launch_config_name),
+                                "original_bid": get_bid(as_group.launch_configuration_name),
+                                "max_bid": get_max_bid(as_group.launch_config_name), # with LC name we can get LC, find instance type and determine the on_demand price
+                                "spot_LC_name": as_group.launch_config_name,
+                                "demand_expiration": None, # when the first ondemand instance is spun up, set this to now+55 mins (epoch + 3300)
+                                "min_AZs": 3, # find a way to make this configurable. Perhaps this script could be a template OR a passed arg
+                                }
+                        for k,v in config_dict: 
                             create_tag()
                     elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'False' ]:
                         # a group that we shouldn't manage
@@ -72,6 +80,15 @@ def main(args):
             return 1
 
 
+def check_group_AZs(as_conn, lc_name):
+    config = as_conn.get_all_launch_configurations([lc_name])[0]
+    get_ec2_ondemand_instances_prices(filter_region=None, filter_instance_type=None, filter_os_type=None, use_cache=False)
+    
+    config.spot_price
+    # return { 'A': { 'use':True, 'health':[0, 0, 1], 'last_update':'epoch'}, 'B': '...' }
+    return True
+
+
 def get_health(as_conn as_group, AZ):
     # returns True or False depending on health (2/3 health checks == 0)
     pass
@@ -82,12 +99,12 @@ def set_health(as_conn, as_group, AZ, status):
     pass
 
 
-def create_tag(as_conn, as_group, key, value):
+def create_tag(as_conn, as_group_name, key, value):
     as_tag = Tag(key=key,
                 value=value,
-                resource_id=as_group.name)
+                resource_id=as_group_name)
     return as_conn.create_or_update_tags([as_tag])
-    #as_conn.get_all_groups(as_group.name)[0] # or return refreshed group?
+    #as_conn.get_all_groups(names=[as_group_name])[0] # or return refreshed group?
     #return group
 
 

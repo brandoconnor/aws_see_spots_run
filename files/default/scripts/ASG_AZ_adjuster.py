@@ -1,23 +1,19 @@
-#!/usr/bin/env python27
-#XXX test on various python distributions
-'''
-A script to manage autoscaling groups on spot instances. These ASGs can get into states where
-scale up actions are repeatedly tried and cancelled due to high prices or lingering requests for
-other reasons. This script will notice that situation and take action to remove bad AZs from the
-ASG in question.
-'''
+# A script to manage autoscaling groups on spot instances. These ASGs can get into states where
+# scale up actions are repeatedly tried and cancelled due to high prices or lingering requests for
+# other reasons. This script will notice that situation and take action to remove bad AZs from the
+# ASG in question.
+
 import argparse
 import boto
-import boto.utils
 import json
 import sys
 from AWS_see_spots_run_common import *
-from boto import utils, ec2
+from boto import ec2
 from boto.ec2 import autoscale
-from boto.ec2.autoscale import Tag # ?
 from boto.exception import EC2ResponseError, BotoServerError
 from collections import Counter
 from datetime import datetime, timedelta
+
 
 def main(args):
     verbose = dry_run_necessaries(args.dry_run, args.verbose)
@@ -29,7 +25,7 @@ def main(args):
             # TODO: a lot of this work can be replaced with looking for ASGs with tags provided
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
             for LC in spot_LCs:
-                try: 
+                try:
                     product_description = ec2_conn.get_image(LC.image_id).platform
                 except:
                     continue
@@ -64,7 +60,7 @@ def main(args):
                         if good_AZs != live_AZs:
                             print_verbose("Current AZs %s but should be %s" % (live_AZs, good_AZs), verbose)
             print_verbose("Region %s pass complete." % region.name, verbose)
-        
+
         except EC2ResponseError, e:
             handle_exception(e)
             pass

@@ -115,7 +115,8 @@ EC2_REGIONS_API_TO_JSON_NAME = {
     "sa-east-1" : "sa-east-1"
 }
 
-INSTANCES_ON_DEMAND_LINUX_URL = "http://aws.amazon.com/ec2/pricing/json/linux-od.json"
+#INSTANCES_ON_DEMAND_LINUX_URL = "http://aws.amazon.com/ec2/pricing/json/linux-od.json"
+INSTANCES_ON_DEMAND_LINUX_URL = "https://a0.awsstatic.com/pricing/1/deprecated/ec2/linux-od.json"
 INSTANCES_ON_DEMAND_RHEL_URL = "http://aws.amazon.com/ec2/pricing/json/rhel-od.json"
 INSTANCES_ON_DEMAND_SLES_URL = "http://aws.amazon.com/ec2/pricing/json/sles-od.json"
 INSTANCES_ON_DEMAND_WINDOWS_URL = "http://aws.amazon.com/ec2/pricing/json/mswin-od.json"

@@ -21,13 +21,21 @@ def print_verbose(message, verbose):
 
 def handle_exception(exception):
     exc_traceback = sys.exc_info()[2]
-    print_verbose("Exception caught on line %s of %s: %s" % (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)), True)
+    print_verbose("Exception caught on line %s of %s: %s" % 
+            (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)), True)
 
 
 def get_tag_list(ASG, tag_key):
     # tag values always come back as unicode. This will return a native list.
+    # XXX: still needed?
     return ast.literal_eval([ t for t in ASG.tags if t.key == tag_key ][0].value)
 
+
+def get_tag_json(ASG, tag_key):
+    # tag values always come back as unicode. This will return native json.
+    # return ast.literal_eval([ t for t in ASG.tags if t.key == tag_key ][0].value)
+    # TODO: implement
+    return True
 
 def get_AZs(instance_type, bid_price, product_description, ec2_conn):
     start_time = datetime.utcnow() - timedelta(minutes=5)
