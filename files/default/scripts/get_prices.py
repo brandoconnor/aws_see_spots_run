@@ -1,45 +1,57 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # get_prices.py
-#
 #
 
 import boto
-# import json #XXX necessary?
+from boto import ec2
 import requests
 import sys
+import demjson
 from AWS_see_spots_run_common import *
+from datetime import datetime, timedelta
 
 
-def get_price_url(os_class): # valid for mswin, sles, rhel, linux XXX is there a way to provide list of valid options for a python method?
-    # prev and current gen might matter for these links
-    ## try https://a0.awsstatic.com/pricing/0/deprecated/ec2/linux-od.json
-    return 'https://a0.awsstatic.com/pricing/1/deprecated/ec2/%s-od.json' % os_class
+def get_price_url(launch_config):
+    # nabbed URL list from https://github.com/iconara/ec2pricing/blob/master/public/app/ec2pricing/config.js
+    base_url = 'http://a0.awsstatic.com/pricing/1/ec2/'
+
+    previous_gen_types = ['m1', 'm2', 'c2', 'cc2', 'cg1', 'cr1', 'hi1']
+    if launch_config.instance_type.split('.')[0] in previous_gen_types:
+        base_url += 'previous-generation/'
+
+    image = ec2_conn.get_image(launch_config.image_id)
+
+    if image.platform == 'windows':
+        base_url += 'mswin'
+    elif 'SUSE Linux Enterprise Server' in image.description:
+        base_url += 'sles'
+    else:
+        base_url += 'linux'
+    url = base_url + '-od.min.js'
+    return url
 
 
-def get_ondemand_price(as_conn, region, launch_config_name, verbose):
-    os_class_map = {} # how do LCs give these? I think AMIs have them so get LC.image_id and search for that image.platform. Map from there
-    prev_gen_price_map = {'us-east-1': {'m1.small': .01, 'm2.xlarge': .33 } } #TODO: fill this in or find another way
+def get_ondemand_price(launch_config, verbose):
     try:
-        # this is super ugly and at some point will likely not work due to deprecation
-        # fall back on a manually maintained dictionary for all if absolutely necessary. Demand prices don't vary so often.
-        # use a dictionary or find another automation method
+        region = launch_config.connection.region.name
+        ec2_conn = boto.ec2.connect_to_region(region)
+        image = ec2_conn.get_all_images([launch_config.image_id])[0]
 
-        previous_gen_types = ['m1', 'm2', 'c2']
-        if instance_size.split('.')[0] in previous_gen_types:
-            print_verbose("Previous gen on demand prices not implemented yet", verbose)
-            return .01
-        else:
-            json_blob = requests.get(get_price_url(os_class()).json()
-            # this code feels gross
-            regional_prices_json = [ r for r in json_blob['config']['regions'] if r['region'] == region ][0]['instanceTypes']
-            instance_class_prices_json = [ r for r in regional_prices_json if instance_size in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
-            price = float([ e for e in instance_class_prices_json['sizes'] if e['size'] == instance_size ][0]['valueColumns'][0]['prices']['USD'])
-            print_verbose("On demand price for %s in %s is %s" % (instance_size, region, price), verbose) #XXX should verbose make it here?
-            return price
+        url = get_price_url(as_conn.get_launch_config(as_group))
+        resp = requests.get(url)
+        json_str = str(resp.text.split('callback(')[1])[:-2] # need to remove comments and callback syntax before parsing the broken json
+        price_dict = demjson.decode(json_str)['config']['regions']
+
+        regional_prices_json = [ r for r in prices_dict if r['region'] == region ][0]['instanceTypes']
+        instance_class_prices_json = [ r for r in regional_prices_json if instance_size in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
+        price = float([ e for e in instance_class_prices_json['sizes'] if e['size'] == instance_size ][0]['valueColumns'][0]['prices']['USD'])
+        print_verbose("On demand price for %s in %s is %s" % (instance_size, region, price), verbose)
+        return price
 
     except Exception, e:
-        handle_exception(e)
+        handle_exception(e, True)
         sys.exit(1)
+
 
 def main():
     pass

@@ -1,31 +1,38 @@
 #!/usr/bin/env python27
 '''
+Tagger should be run on a periodic basis (default once an hour) to tag new ASGs
+that spring into existence and correct situations where tags are missing
+
+All keys aside from AZ_info should be a set just once. If a user wants to
+override a tag value, that will be honored and not overridden by automation.
+
 Keys should be:
-SSR_enabled = True/False - can be forced to False in attrs. Checked every time.
-AZ_info = { 'A':{see individual_AZ below},'B':{},'C':{},'D':{},'E':{} }
+SSR_enabled = True/False - can be forced to False in attrs.
+AZ_info = { 'us-east-1a':{see individual_AZ below},'us-east-1b':{},'us-east-1c':{},'...':'...'}
 original_bid = .10 (price during initial tagging - only set once)
-max_bid = determined by either json in attributes OR on demand price (verfied each pass)
+max_bid =  on demand price.
 spot_LC_name = launch_config_name (if this changes, update all other tags, disable SSR if no longer spot)
 demand_expiration = epoch_time_to_check_if_demand_can_be_killed (set in attr default 55m)
-min_azs = num (attr set default=3)
+min_azs = 3 (set in default attributes) - how to customize this for some AZs? Maybe don't correct this value if tag is changed.
 
 also possible:
 <individual_AZ> = { 'use':True,'health':[1, 0, 1],'last_update':'epoch'}
 
-Are these needed?
+Are these needed? - would be useful for debugging
 last_mod_time = set when change happens (across all code and on tag_init)
 last_mod_type = action taken last
 
 Potential feature:
 instance_types = [ original_first_choice, m1.next_choice, ect. ] # json or ordered list? maybe give default?
+max_price = can be overidden with a json blob in attributes for each instance_type in each region.
 '''
 import argparse
 import ast
 import boto
 import sys
+import time
 from AWS_see_spots_run_common import *
 from get_prices import get_ondemand_price
-#from ec2instancespricing import get_ec2_ondemand_instances_prices
 from boto import ec2
 from boto.ec2 import autoscale
 from boto.ec2.autoscale import Tag
@@ -39,34 +46,24 @@ def main(args):
             as_conn = boto.ec2.autoscale.connect_to_region(region.name)
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
-            for LC in spot_LCs:
-                spot_LC_groups = [ g for g in all_groups if g.launch_config_name == LC.name ]
+            for launch_config in spot_LCs:
+                spot_LC_groups = [ g for g in all_groups if g.launch_config_name == launch_config.name ]
                 for as_group in spot_LC_groups:
                     print_verbose(as_group.name, verbose)
                     if not [ t for t in as_group.tags if t.key == 'SSR_enabled' ]:
                         # this group does not have the SSR_enabled tag indicator
                         ## default it to True and set all tags
-                        print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % (as_group.name) , verbose)
-                        config_dict = {
-                                "SSR_enabled": True,
-                                "AZ_info": check_group_AZs(as_conn, as_group.launch_config_name),
-                                "original_bid": get_bid( as_group.launch_configuration_name),
-                                "max_bid": get_ondemand_price(as_conn, region, as_group.launch_config_name, verbose), # with LC name we can get LC, find instance type and determine the on_demand price
-                                "spot_LC_name": as_group.launch_config_name,
-                                "demand_expiration": None, # when the first ondemand instance is spun up, set this to now+55 mins (epoch + 3300)
-                                "min_AZs": 3, # find a way to make this configurable. Perhaps this script could be a template OR a passed arg
-                                }
-                        for k,v in config_dict: 
-                            create_tag()
+                        print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % as_group.name, verbose)
+                        init_as_group_tags(as_group, args.min_healthy_AZs)
+
                     elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'False' ]:
-                        # a group that we shouldn't manage
                         print_verbose('Not managing group as SSR_enabled set to false.' % as_group.name, verbose)
-                        pass
+
                     elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'True' ]:
-                        # this is an SSR managed ASG, verify tags are correct and manage
-                        # these groups could be found just by searching all ASGs for this key value pair. Easier than going through the iteration.
-                        print_verbose('Group %s is SSR managed. Verifying tags or skipping?', verbose)
-                        pass
+                        #TODO: verify all tags exist for this ASG, if not, re init all... might be better to just reinit missing tags
+                        print_verbose('Group %s is SSR managed. Verifying all tags in place.', verbose)
+                        if not all_tags_exist():
+                            init_as_group_tags(as_group, args.min_healthy_AZs)
                     else:
                         raise Exception("SSR_enabled tag found for %s but isn't a valid value." % as_group.name)
 
@@ -81,43 +78,52 @@ def main(args):
             return 1
 
 
+def init_as_group_tags(as_group, min_AZs):
+    config = get_launch_config(as_group)
+    init_AZ_info(as_group)
+    config_dict = {
+            "SSR_enabled": True,
+            "original_bid": get_bid(as_group),
+            "max_bid": get_ondemand_price(as_group, verbose),
+            "spot_LC_name": as_group.launch_config_name,
+            "demand_expiration": None, # when the group switches to ondemand, set this to epoch_now + default['attr'] mins
+            "min_healthy_AZs": min_AZs
+            }
+    for k,v in config_dict:
+        create_tag(as_group, k, v)
 
 
-def get_bid():
-    config = as_conn.get_all_launch_configurations([lc_name])[0]
-    #XXX implement
-    return True
+def init_AZ_info(as_group):
+    potential_zones = get_potential_AZs(as_group)
+    ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+    all_zones = ec2_conn.get_all_zones()
 
-def check_group_AZs(as_conn, lc_name):
-    config = as_conn.get_all_launch_configurations([lc_name])[0]
-    #get_ec2_ondemand_instances_prices(filter_region=None, filter_instance_type=None, filter_os_type=None, use_cache=False)
-    #XXX implement
-    #config.spot_price
-    # return { 'A': { 'use':True, 'health':[0, 0, 1], 'last_update':'epoch'}, 'B': '...' }
-    return True
+    epoch_time = int(time.time())
 
-
-def get_health(as_conn as_group, AZ):
-    # returns True or False depending on health (2/3 health checks == 0)
-    pass
+    for zone in all_zones:
+        if zone.name in potential_zones:
+            create_tag(as_group, zone.name, {"use": True, "health": [0,0,0], "last_update": epoch_time })
+        else:
+            create_tag(as_group, zone.name, {"use": False, "health": [0,0,0], "last_update": epoch_time })
 
 
-def set_health(as_conn, as_group, AZ, status):
+def set_health(as_group, AZ, health):
     # like exit codes 0 is healthy, 1 is unhealthy
     pass
 
 
-def create_tag(as_conn, as_group_name, key, value):
+def create_tag(as_group, key, value):
     as_tag = Tag(key=key,
                 value=value,
-                resource_id=as_group_name)
-    return as_conn.create_or_update_tags([as_tag])
-    #as_conn.get_all_groups(names=[as_group_name])[0] # or return refreshed group?
-    #return group
+                resource_id=as_group.name)
+    return as_group.connection.create_or_update_tags([as_tag])
+    # as_conn.connection.get_all_groups(names=[as_group.name])[0] # or return refreshed group?
+    # return group
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
+    parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
     sys.exit(main(parser.parse_args()))

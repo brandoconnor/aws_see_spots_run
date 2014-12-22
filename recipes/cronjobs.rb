@@ -25,22 +25,17 @@ remote_directory "scripts" do
     files_backup    0
 end
 
-cron "ASG_AZ_adjuster" do
-  command "#{node['AWS_see_spots_run']['exec_path']}ASG_AZ_adjuster.py"
-  minute node['AWS_see_spots_run'][ 'ASG_adjuster_interval']
+cron "ASG_tagger" do
+  command "#{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -m #{node['AWS_see_spots_run']['min_healthy_AZs']} - #{node['AWS_see_spots_run']['']}"
+  minute node['AWS_see_spots_run'][ 'ASG_tagger_interval']
 end
 
 cron "spot_request_killer" do
-  command "#{node['AWS_see_spots_run']['exec_path']}spot_request_killer.py -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']}"
+  command "#{node['AWS_see_spots_run']['exec_path']}spot_request_killer.py -m #{node['AWS_see_spots_run']['sr_killer_minutes_before_stale']}"
   minute node['AWS_see_spots_run'][ 'spot_request_killer_interval']
 end
 
-#cron "price_adjuster" do
-#  command "#{node['AWS_see_spots_run']['exec_path']}price_adjuster.py "
-#  minute node['AWS_see_spots_run'][ 'price_adjuster_interval']
-#end
-#
-#cron "ASG_tagger" do
-#  command "#{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py "
-#  minute node['AWS_see_spots_run'][ 'price_adjuster_interval']
+#cron "ASG_monitor" do
+#  command "#{node['AWS_see_spots_run']['exec_path']}ASG_monitor.py "
+#  minute node['AWS_see_spots_run'][ 'ASG_monitor_interval']
 #end

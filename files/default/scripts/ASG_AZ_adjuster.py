@@ -24,13 +24,13 @@ def main(args):
             all_ASGs = as_conn.get_all_groups()
             # TODO: a lot of this work can be replaced with looking for ASGs with tags provided
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
-            for LC in spot_LCs:
+            for launch_config in spot_LCs:
                 try:
                     product_description = ec2_conn.get_image(LC.image_id).platform
                 except:
                     continue
-                LC_ASGs = [ g for g in all_ASGs if g.launch_config_name == LC.name ]
-                for ASG in LC_ASGs:
+                LC_ASGs = [ g for g in all_ASGs if g.launch_config_name == launch_config.name ]
+                for as_group in LC_ASGs:
                     # grab top AZ of last unsuccessful activities in the past x minutes (30m)
                     offending_AZ = Counter([ json.loads(a.Details)['Availability Zone'] for a in g.get_activities() if
                         a.status_code != 'Successful' and
@@ -39,21 +39,21 @@ def main(args):
 
                     if offending_AZ and offending_AZ[0][1] >= 3: # relies on order of the tuple returned
                         ## alter instance type to one one larger of the same family
-                        good_AZs = get_AZs(LC.instance_type, LC.spot_price, product_description, ec2_conn)
+                        good_AZs = get_healthy_AZs(as_group)
                         offending_AZ = offending_AZ[0][0]
                         if offending_AZ in good_AZs:
                             good_AZs.remove(offending_AZ)
                         if len(good_AZs) >= 2:
-                            ASG.availability_zones = good_AZs
-                            print("Updating %s with AZs %s and not %s" % (ASG.name, good_AZs, offending_AZ), verbose)
+                            as_group.availability_zones = good_AZs
+                            print("Updating %s with AZs %s and not %s" % (as_group.name, good_AZs, offending_AZ), verbose)
                             if not args.dry_run:
-                                ASG.update()
+                                as_group.update()
                         else:
                             print_verbose("Not enough AZs left on %s to kill willy nilly. Keeping %s which contains %s." % (ASG.name, good_AZs, offending_AZ), verbose)
                     else:
-                        good_AZs = get_AZs(LC.instance_type, LC.spot_price, product_description, ec2_conn)
+                        good_AZs = get_healthy_AZs(as_group) # get them via tag and json parsing
                         good_AZs.sort()
-                        live_AZs = ASG.availability_zones
+                        live_AZs = as_group.availability_zones
                         live_AZs.sort()
                         # maybe add back ASGs in a good state
                         print_verbose("No bad AZs %s using %s." % (ASG.name, LC.instance_type), verbose)

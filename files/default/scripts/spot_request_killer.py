@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 '''
 Kills stale spot requests which are unlikely to be fulfilled,
-allowing the request to shift a more viable AZ.
+allowing the request to shift a more viable AZ through SSR.
 '''
 import argparse
 import boto.ec2
-import datetime
 import json
 import sys
 from AWS_see_spots_run_common import *
 from boto.exception import EC2ResponseError
+from datetime import datetime, timedelta
+
 
 def main(args):
     verbose = dry_run_necessaries(args.dry_run, args.verbose)
@@ -19,17 +20,19 @@ def main(args):
             pending_requests = []
             bad_statuses = json.loads('{"status-code": ["capacity-not-available", "capacity-oversubscribed", "price-too-low", "not-scheduled-yet", "launch-group-constraint", "az-group-constraint", "placement-group-constraint", "constraint-not-fulfillable" ]}')
             pending_requests.append(ec2_conn.get_all_spot_instance_requests(filters=bad_statuses))
-            oldest_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=args.minutes)
+            oldest_time = datetime.utcnow() - timedelta(minutes=args.minutes)
             # flattening the list of lists here
-            pending_requests = [item for sublist in pending_requests for item in sublist]
+            print pending_requests
+            pending_requests = [ item for sublist in pending_requests for item in sublist ]
             for request in pending_requests:
-                if oldest_time > datetime.datetime.strptime(request.create_time, "%Y-%m-%dT%H:%M:%S.000Z"):
+                if oldest_time > datetime.strptime(request.create_time, "%Y-%m-%dT%H:%M:%S.000Z"):
                     print_verbose("Killing spot request %s." % str(request.id), verbose)
+                    # there doesnt appear to be a way to trace a spot request back to the AZ that requested it
+                    ## otherwise I'd consider adding a failed health check to this AZ for the as_group
                     if not args.dry_run:
                         request.cancel()
                     else:
                         print_verbose("PSYCH! Dry run.", verbose)
-                    #TODO: update tag for AZ
                 else:
                     print_verbose("Request %s not older than %s minutes. Continuing..." % (request.id, str(args.minutes)), verbose)
             print_verbose("Region %s pass complete." % region.name, verbose)

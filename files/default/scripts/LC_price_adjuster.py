@@ -11,15 +11,15 @@ from AWS_see_spots_run_common import *
 from  boto.ec2.autoscale.launchconfig import LaunchConfiguration
 from boto.exception import EC2ResponseError, BotoServerError
 
+# NOTE: when flipping to ondemand, I think a special state is required where all potential AZs are added back.
 
 def main():
     pass
 
 
-def recreate_LC(as_conn, as_group_name, LC_name, new_bid, dry_run, verbose):
-    #XXX establish your own as_conn?
+def recreate_LC(as_group, new_bid, dry_run, verbose):
     try:
-        old_launch_config = as_conn.get_all_launch_configurations(names=[LC_name])[0]
+        old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-13] + id_generator()
 
         launch_config = LaunchConfiguration( 
@@ -43,7 +43,7 @@ def recreate_LC(as_conn, as_group_name, LC_name, new_bid, dry_run, verbose):
             name = new_launch_config_name,
             )
 
-        as_groups = [ a for a in as_conn.get_all_groups() if conf.name == a.launch_config_name ]
+        as_groups = [ a for a in as_group.connection.get_all_groups() if old_launch_config.name == a.launch_config_name ]
         for as_group in as_groups:
             #setattr(as_group, launch_config_name, launch_config.name)
             as_group.launch_config_name = launch_config.name
