@@ -1,4 +1,4 @@
-#!/usr/bin/env python27
+#!/usr/bin/env python3
 '''
 Common functions used throughout this cookbook's codebase.
 '''
@@ -76,8 +76,8 @@ def get_current_spot_prices(as_group):
                 )
         return prices # returns a list of ALL spot prices for all AZs
 
-    except Exception, e:
-        handle_exception(e)
+    except:
+        handle_exception(sys.exc_info()[0])
         sys.exit(1)
 
 

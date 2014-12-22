@@ -1,4 +1,4 @@
-#!/usr/bin/env python27
+#!/usr/bin/env python3
 '''
 Changes the bid price to either specified value or
 This is the only script of the bunch that isn't run on a schedule.
@@ -16,13 +16,18 @@ from boto.exception import EC2ResponseError, BotoServerError
 def main():
     pass
 
+# turns out this method is not needed
+def update_LC_by_cfn(as_group, new_bid, dry_run, verbose):
+    cfn_conn = boto.cloudformation.connect_to_region(as_group.connection.region.name)
+    stack_name = [ t.value for t in as_group.tags if t.key == 'aws:cloudformation:stack-name' ][0]
+
 
 def recreate_LC(as_group, new_bid, dry_run, verbose):
     try:
         old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-13] + id_generator()
 
-        launch_config = LaunchConfiguration( 
+        launch_config = LaunchConfiguration(
             image_id = old_launch_config.image_id,
             key_name = old_launch_config.key_name,
             security_groups = old_launch_config.security_groups,
@@ -43,36 +48,40 @@ def recreate_LC(as_group, new_bid, dry_run, verbose):
             name = new_launch_config_name,
             )
 
+        new_launch_config = as_conn.create_launch_configuration(launch_config)
         as_groups = [ a for a in as_group.connection.get_all_groups() if old_launch_config.name == a.launch_config_name ]
         for as_group in as_groups:
             #setattr(as_group, launch_config_name, launch_config.name)
+            print(as_group)
             as_group.launch_config_name = launch_config.name
             if not dry_run:
-                print_verbose("Created LC %s with price %s and applying to ASG %s" % 
-                        (launch_config.name , new_bid, as_group_name), verbose)
+                print_verbose("Created LC %s with price %s and applying to ASG %s" %
+                        (launch_config.name , new_bid, as_group.name), verbose)
                 as_group.update()
             else:
-                print_verbose("Created LC %s with price %s but NOT applying to ASG %s" % 
-                        (launch_config.name , new_bid, as_group_name), True)
+                print_verbose("Created LC %s with price %s but NOT applying to ASG %s" %
+                        (launch_config.name , new_bid, as_group.name), True)
 
         #TODO: delete old LC?
         print_verbose("Autoscaling group launch configuration update complete.", verbose)
 
-    except EC2ResponseError, e:
-        handle_exception(e)
+    #TODO readd boto
+    except EC2ResponseError as e:
+        handle_exception(sys.exc_info()[0])
         pass
 
-    except BotoServerError, e:
-        handle_exception(e)
+    except BotoServerError as e:
+        handle_exception(sys.exc_info()[0])
         pass
 
-    except Exception, e:
-        handle_exception(e)
+    except:
+        handle_exception(sys.exc_info()[0])
         return 1
 
 
 def id_generator(size=10, chars=string.ascii_uppercase + string.digits):
     return 'SSR' + ''.join(random.choice(chars) for _ in range(size))
 
+
 if __name__ == "__main__":
-    sys.exit(main()) 
+    sys.exit(main())
