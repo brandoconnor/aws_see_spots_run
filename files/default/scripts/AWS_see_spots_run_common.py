@@ -82,6 +82,7 @@ def get_current_spot_prices(as_group):
 
 
 def get_launch_config(as_group):
+    as_group.connection
     return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
 
 
@@ -100,3 +101,15 @@ def get_bid(as_group):
 def get_AZ_health(as_group, AZ):
     # returns True or False depending on health (2/3 health checks == 0)
     pass
+
+
+def get_SSR_groups(as_conn):
+    return [ g for g in as_conn.get_all_groups() if [ t for t in g.tags if t.key == 'SSR_enabled' and t.value == 'True' ] ]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
+    parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    sys.exit(main(parser.parse_args()))

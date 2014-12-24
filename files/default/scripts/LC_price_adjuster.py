@@ -67,15 +67,15 @@ def recreate_LC(as_group, new_bid, dry_run, verbose):
 
     #TODO readd boto
     except EC2ResponseError as e:
-        handle_exception(sys.exc_info()[0])
+        handle_exception(e)
         pass
 
     except BotoServerError as e:
-        handle_exception(sys.exc_info()[0])
+        handle_exception(e)
         pass
 
     except:
-        handle_exception(sys.exc_info()[0])
+        handle_exception(e)
         return 1
 
 

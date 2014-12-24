@@ -1,4 +1,4 @@
-#!/usr/bin/env python27
+#!/usr/bin/env python3
 '''
 Tagger should be run on a periodic basis (default once an hour) to tag new ASGs
 that spring into existence and correct situations where tags are missing
