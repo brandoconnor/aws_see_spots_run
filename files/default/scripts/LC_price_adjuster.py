@@ -22,7 +22,7 @@ def update_LC_by_cfn(as_group, new_bid, dry_run, verbose):
     stack_name = [ t.value for t in as_group.tags if t.key == 'aws:cloudformation:stack-name' ][0]
 
 
-def recreate_LC(as_group, new_bid, dry_run, verbose):
+def modify_price(as_group, new_bid, dry_run, verbose):
     try:
         old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-13] + id_generator()

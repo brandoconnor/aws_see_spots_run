@@ -107,9 +107,16 @@ def init_AZ_info(as_group):
             create_tag(as_group, zone.name, {"use": False, "health": [0,0,0], "last_update": epoch_time })
 
 
+def get_AZ_tag(as_group, AZ):
+    return [ tag for tag in as_group.tags if tag.key == AZ ][0].value
+
+
 def set_health(as_group, AZ, health):
-    # like exit codes 0 is healthy, 1 is unhealthy
-    pass
+    get_AZ_tag(as_group, AZ)
+    tag = Tag(key=AZ,
+            value=,
+            resource_id=as_group.name)
+    as_group.connection.create_or_update_tags(tag)
 
 
 def create_tag(as_group, key, value):

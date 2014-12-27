@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # price_monitor.py
 #
+#TODO: write code to determine if any 1 or 2 AZs with high prices can be nixed
 
 import boto
 from boto import ec2
 import sys
 from AWS_see_spots_run_common import *
-from datetime import datetime, timedelta
+from get_prices import *
+
 
 def main(args):
     verbose = dry_run_necessaries(args.dry_run, args.verbose)
@@ -17,12 +19,24 @@ def main(args):
             for as_group in as_groups:
                 bid = get_bid(as_group)
                 current_prices = get_current_spot_prices(as_group)
-                good_AZs = []
                 for price in current_prices:
-                    if price.price >= bid * 1.1 : #NOTE: bid must be 10% higher than the price in order to remain unchanged (make this configurable?)
-                        print("do things?")
+                    if price.price > bid * 1.1: #NOTE: bid must be 10% higher than the price in order to remain unchanged (make this configurable?)
+                        print("price of %s in AZ %s is too high. Marking AZ as unhealthy." % price.availability_zone)
+                        set_health(as_group, price.availability_zone, 1)
+                    else:
+                        set_health(as_group, price.availability_zone, 0)
+
+                get_as_group_health(as_group)
 
             print_verbose('Done with pass on %s' % region.name ,verbose)
+
+
+        # demand_price = get_ondemand_price(get_launch_config(as_group), verbose)
+        # switch_to_demand()
+        # modify_price(as_group, price.price * 1.1, dry_run, verbose)
+        # good_AZs = []
+        # raise_price = False
+        # mod_AZs = False
 
         except EC2ResponseError, e:
             handle_exception(e)

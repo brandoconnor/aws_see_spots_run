@@ -11,6 +11,36 @@ from AWS_see_spots_run_common import *
 from datetime import datetime, timedelta
 
 
+def get_current_spot_prices(as_group):
+    try:
+        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+
+        start_time = datetime.now() - timedelta(minutes=5)
+        start_time = start_time.isoformat()
+        end_time = datetime.now().isoformat()
+        image = get_image(as_group)
+        if image.platform == 'windows':
+            os_type = 'Windows'
+        elif 'SUSE Linux Enterprise Server' in image.description:
+            os_type = 'SUSE Linux'
+        else:
+            os_type = 'Linux/UNIX'
+        if as_group.vpc_zone_identifier:
+            os_type += ' (Amazon VPC)'
+
+        prices = ec2_conn.get_spot_price_history(
+                product_description=os_type, 
+                end_time=end_time, 
+                start_time=start_time, 
+                instance_type= get_launch_config(as_group).instance_type
+                )
+        return prices # returns a list of ALL spot prices for all AZs
+
+    except:
+        handle_exception(sys.exc_info()[0])
+        sys.exit(1)
+
+
 def get_price_url(launch_config):
     # nabbed URL list from https://github.com/iconara/ec2pricing/blob/master/public/app/ec2pricing/config.js
     base_url = 'http://a0.awsstatic.com/pricing/1/ec2/'

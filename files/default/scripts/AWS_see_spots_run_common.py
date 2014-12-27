@@ -27,14 +27,10 @@ def handle_exception(exception):
 
 
 def get_tag_list(as_group, tag_key):
-    # tag values always come back as unicode. This will return a native list.
-    # XXX: still needed?
     return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
 
 
 def get_tag_json(as_group, tag_key):
-    # tag values always come back as unicode. This will return native json.
-    # return ast.literal_eval([ t for t in ASG.tags if t.key == tag_key ][0].value)
     # TODO: implement
     return True
 
@@ -50,35 +46,6 @@ def get_healthy_AZs(as_group):
     # just parse tags to fetch this
     pass
 
-
-def get_current_spot_prices(as_group):
-    try:
-        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-
-        start_time = datetime.now() - timedelta(minutes=5)
-        start_time = start_time.isoformat()
-        end_time = datetime.now().isoformat()
-        image = get_image(as_group)
-        if image.platform == 'windows':
-            os_type = 'Windows'
-        elif 'SUSE Linux Enterprise Server' in image.description:
-            os_type = 'SUSE Linux'
-        else:
-            os_type = 'Linux/UNIX'
-        if as_group.vpc_zone_identifier:
-            os_type += ' (Amazon VPC)'
-
-        prices = ec2_conn.get_spot_price_history(
-                product_description=os_type, 
-                end_time=end_time, 
-                start_time=start_time, 
-                instance_type= get_launch_config(as_group).instance_type
-                )
-        return prices # returns a list of ALL spot prices for all AZs
-
-    except:
-        handle_exception(sys.exc_info()[0])
-        sys.exit(1)
 
 
 def get_launch_config(as_group):
