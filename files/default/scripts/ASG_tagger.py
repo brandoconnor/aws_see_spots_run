@@ -3,108 +3,134 @@
 Tagger should be run on a periodic basis (default once an hour) to tag new ASGs
 that spring into existence and correct situations where tags are missing
 
-All keys aside from AZ_info should be a set just once. If a user wants to
+All values aside from AZ_status should be a set just once. If a user wants to
 override a tag value, that will be honored and not overridden by automation.
 
+Only 10 tags are allowed per as_group so these need to be used sparingly.
 Keys should be:
-SSR_enabled = True/False - can be forced to False in attrs.
-AZ_info = { 'us-east-1a':{see individual_AZ below},'us-east-1b':{},'us-east-1c':{},'...':'...'}
-original_bid = .10 (price during initial tagging - only set once)
-max_bid =  on demand price.
-spot_LC_name = launch_config_name (if this changes, update all other tags, disable SSR if no longer spot)
+~148 chars
+SSR_config = { 'SSR_enabled': True/False, 'original_bid': '.01', 'min_AZs': '3', 'LC_name': 'launch_config_name'}
+This could be condensed into a single, parsable value with ALL AZs but we'd need to be smarter about chars used
+<individual_AZ> = { 'use':True,'health':[1, 0, 1],#} # 'last_update':'epoch'} epoch not needed?
+
+#TODO: implement:
 demand_expiration = epoch_time_to_check_if_demand_can_be_killed (set in attr default 55m)
-min_azs = 3 (set in default attributes) - how to customize this for some AZs? Maybe don't correct this value if tag is changed.
+
+details for above:
+original_bid = .10 (price during initial tagging - only set once)
+spot_LC_name = launch_config_name (if this changes, update all other tags, disable SSR if no longer spot)
+min_azs = 3 (set in default attributes)
 
 also possible:
-<individual_AZ> = { 'use':True,'health':[1, 0, 1],'last_update':'epoch'}
+AZ_status = { 'us-east-1a':{see individual_AZ below},'us-east-1b':{},'us-east-1c':{},'...':'...'}
 
 Are these needed? - would be useful for debugging
 last_mod_time = set when change happens (across all code and on tag_init)
 last_mod_type = action taken last
-
-Potential feature:
-instance_types = [ original_first_choice, m1.next_choice, ect. ] # json or ordered list? maybe give default?
-max_price = can be overidden with a json blob in attributes for each instance_type in each region.
 '''
+#XXX do I need to "re-get" an ASG at any point here after tagging?
 import argparse
 import ast
 import boto
 import sys
 import time
 from AWS_see_spots_run_common import *
-from get_prices import get_ondemand_price
 from boto import ec2
 from boto.ec2 import autoscale
 from boto.ec2.autoscale import Tag
-from boto.exception import EC2ResponseError
+from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):
     verbose = dry_run_necessaries(args.dry_run, args.verbose)
     for region in boto.ec2.regions():
         try:
+            print_verbose('Starting pass on %s' % region.name ,verbose)
+            ec2_conn = boto.ec2.connect_to_region(region.name)
             as_conn = boto.ec2.autoscale.connect_to_region(region.name)
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
             for launch_config in spot_LCs:
                 spot_LC_groups = [ g for g in all_groups if g.launch_config_name == launch_config.name ]
                 for as_group in spot_LC_groups:
-                    print_verbose(as_group.name, verbose)
-                    if not [ t for t in as_group.tags if t.key == 'SSR_enabled' ]:
-                        # this group does not have the SSR_enabled tag indicator
-                        ## default it to True and set all tags
+                    if not [ t for t in as_group.tags if t.key == 'SSR_config' ]:
                         print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % as_group.name, verbose)
-                        init_as_group_tags(as_group, args.min_healthy_AZs)
+                        init_as_group_tags(as_group, args.min_healthy_AZs, verbose)
 
-                    elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'False' ]:
-                        print_verbose('Not managing group as SSR_enabled set to false.' % as_group.name, verbose)
+                    elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
+                        print_verbose('Not managing group %s as SSR_enabled set to false.' % as_group.name, verbose)
 
-                    elif [ t for t in as_group.tags if t.key == 'SSR_enabled' and t.value == 'True' ]:
-                        #TODO: verify all tags exist for this ASG, if not, re init all... might be better to just reinit missing tags
-                        print_verbose('Group %s is SSR managed. Verifying all tags in place.', verbose)
-                        if not all_tags_exist():
-                            init_as_group_tags(as_group, args.min_healthy_AZs)
+                    elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
+                        print_verbose('Group %s is SSR managed. Verifying all config values in place.' % as_group.name, verbose)
+                        # this could be made into a reusable function passed a list
+                        config_dict = get_tag_dict_value(as_group, 'SSR_config')
+                        config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', ]
+                        if not all(key in config_dict.keys() for key in config_keys):
+                            print_verbose("Not all config keys found. Initializing.", verbose)
+                            init_as_group_tags(as_group, args.min_healthy_AZs, verbose)
+                        else:
+                            print_verbose("All config keys found.", verbose)
+                        ###XXX working here
+                        zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
+                        if not get_tag_dict_value(as_group, 'AZ_status') or not all(z in get_tag_dict_value(as_group, 'AZ_status').keys() for z in zones): #TODO verify all AZs are in this dict and if not, recreate
+                            print_verbose("Not all zones found. reiniting %s, %s" % (zones,get_tag_dict_value(as_group, 'AZ_status').keys()) , verbose)
+                            init_AZ_status(as_group)
+                        else:
+                            print_verbose("All zone keys in place.", verbose)
                     else:
-                        raise Exception("SSR_enabled tag found for %s but isn't a valid value." % as_group.name)
+                        raise Exception("SSR_enabled tag found for %s but isn't a valid value." % (as_group.name,))
 
-            print_verbose('Done with pass on %s' % region.name ,verbose)
+            print_verbose('Done with pass on %s' % region.name, verbose)
 
-        except EC2ResponseError, e:
+        except EC2ResponseError as e:
             handle_exception(e)
             pass
 
-        except Exception, e:
+        except BotoServerError as e:
+            handle_exception(e)
+            pass
+
+        except Exception as e:
             handle_exception(e)
             return 1
 
-
-def init_as_group_tags(as_group, min_AZs):
-    config = get_launch_config(as_group)
-    init_AZ_info(as_group)
-    config_dict = {
-            "SSR_enabled": True,
-            "original_bid": get_bid(as_group),
-            "max_bid": get_ondemand_price(as_group, verbose),
-            "spot_LC_name": as_group.launch_config_name,
-            "demand_expiration": None, # when the group switches to ondemand, set this to epoch_now + default['attr'] mins
-            "min_healthy_AZs": min_AZs
-            }
-    for k,v in config_dict:
-        create_tag(as_group, k, v)
+    print_verbose("All regions complete", verbose)
 
 
-def init_AZ_info(as_group):
-    potential_zones = get_potential_AZs(as_group)
-    ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-    all_zones = ec2_conn.get_all_zones()
+def init_as_group_tags(as_group, min_AZs, verbose):
+    try:
+        config = get_launch_config(as_group)
+        init_AZ_status(as_group)
+        config_dict = {
+                'enabled': True,
+                'original_bid': get_bid(as_group),
+                'min_AZs': min_AZs,
+                'LC_name': as_group.launch_config_name,
+                }
+                #"demand_expiration": None, # when the group switches to ondemand, set this to epoch_now + default['attr'] mins
+        create_tag(as_group, 'SSR_config', config_dict)
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
-    epoch_time = int(time.time())
 
-    for zone in all_zones:
-        if zone.name in potential_zones:
-            create_tag(as_group, zone.name, {"use": True, "health": [0,0,0], "last_update": epoch_time })
-        else:
-            create_tag(as_group, zone.name, {"use": False, "health": [0,0,0], "last_update": epoch_time })
+def init_AZ_status(as_group):
+    try:
+        potential_zones = get_potential_AZs(as_group)
+        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+        all_zones = ec2_conn.get_all_zones()
+        epoch_time = int(time.time())
+        zone_dict = {}
+        for zone in all_zones:
+            if zone.name in potential_zones:
+                zone_dict[zone.name[-1]] = {"use": True, "health": [0,0,0]} #, "last_update": epoch_time })
+            else:
+                zone_dict[zone.name[-1]] = {"use": False, "health": [0,0,0]}
+        create_tag(as_group, "AZ_status", zone_dict)
+        return True
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def get_AZ_tag(as_group, AZ):
@@ -112,20 +138,36 @@ def get_AZ_tag(as_group, AZ):
 
 
 def set_health(as_group, AZ, health):
-    get_AZ_tag(as_group, AZ)
+    AZ_status = get_AZ_tag(as_group, AZ)
+    AZ_status['health'].pop()
+    AZ_status['health'].insert(0, health)
     tag = Tag(key=AZ,
-            value=,
+            value=AZ_status,
             resource_id=as_group.name)
     as_group.connection.create_or_update_tags(tag)
 
 
 def create_tag(as_group, key, value):
-    as_tag = Tag(key=key,
-                value=value,
-                resource_id=as_group.name)
-    return as_group.connection.create_or_update_tags([as_tag])
-    # as_conn.connection.get_all_groups(names=[as_group.name])[0] # or return refreshed group?
-    # return group
+    try:
+        as_tag = Tag(key=key,
+                    value=value,
+                    resource_id=as_group.name)
+        return as_group.connection.create_or_update_tags([as_tag])
+    except BotoServerError as e:
+        handle_exception(e)
+        delete_AZ_tags(as_group)
+        #set_SSR_disabled(as_group) #XXX
+
+
+def delete_AZ_tags(as_group):
+    ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+    all_zones = [ z.name for z in ec2_conn.get_all_zones() ]
+    tag_list = [ t for t in as_group.tags if t.key in all_zones ]
+    as_group.connection.delete_tags(tag_list)
+
+
+def set_SSR_disabled(as_group):
+    pass
 
 
 if __name__ == "__main__":

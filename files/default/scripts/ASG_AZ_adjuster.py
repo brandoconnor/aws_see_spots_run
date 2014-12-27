@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # A script to manage autoscaling groups on spot instances. These ASGs can get into states where
 # scale up actions are repeatedly tried and cancelled due to high prices or lingering requests for
 # other reasons. This script will notice that situation and take action to remove bad AZs from the
@@ -25,10 +26,9 @@ def match_AZs_on_elbs(as_group, dry_run, verbose):
                 if not dry_run:
                     elb.enable_zones(as_group.availability_zones)
 
-    except Exception, e:
+    except Exception as e:
         handle_exception(e)
         return 1
-
 
 
 def modify_as_group_AZs(as_group, good_AZs, dry_run, verbose):
@@ -40,7 +40,7 @@ def modify_as_group_AZs(as_group, good_AZs, dry_run, verbose):
                 if as_group.load_balancers:
                     match_AZs_on_elbs(as_group)
     
-    except Exception, e:
+    except Exception as e:
         handle_exception(e)
         return 1
 

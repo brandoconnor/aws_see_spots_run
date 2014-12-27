@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # get_prices.py
 #
 
@@ -7,7 +7,6 @@ from boto import ec2
 import requests
 import sys
 import demjson
-from AWS_see_spots_run_common import *
 from datetime import datetime, timedelta
 
 
@@ -36,8 +35,8 @@ def get_current_spot_prices(as_group):
                 )
         return prices # returns a list of ALL spot prices for all AZs
 
-    except:
-        handle_exception(sys.exc_info()[0])
+    except Exception as e:
+        handle_exception(e)
         sys.exit(1)
 
 
@@ -78,8 +77,8 @@ def get_ondemand_price(launch_config, verbose):
         print_verbose("On demand price for %s in %s is %s" % (instance_size, region, price), verbose)
         return price
 
-    except Exception, e:
-        handle_exception(e, True)
+    except Exception as e:
+        handle_exception(e)
         sys.exit(1)
 
 

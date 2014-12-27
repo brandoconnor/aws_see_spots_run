@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Kills stale spot requests which are unlikely to be fulfilled,
 allowing the request to shift a more viable AZ through SSR.
@@ -37,11 +37,11 @@ def main(args):
                     print_verbose("Request %s not older than %s minutes. Continuing..." % (request.id, str(args.minutes)), verbose)
             print_verbose("Region %s pass complete." % region.name, verbose)
 
-        except EC2ResponseError, e:
+        except EC2ResponseError as e:
             handle_exception(e)
             pass
 
-        except Exception, e:
+        except Exception as e:
             handle_exception(e)
             return 1
 

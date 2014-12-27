@@ -14,6 +14,7 @@ def main(args):
     verbose = dry_run_necessaries(args.dry_run, args.verbose)
     for region in boto.ec2.regions():
         try:
+            print_verbose('Starting pass on %s' % region.name ,verbose)
             as_conn = boto.ec2.autoscale.connect_to_region(region.name)
             as_groups = get_SSR_groups(as_conn)
             for as_group in as_groups:
@@ -38,11 +39,11 @@ def main(args):
         # raise_price = False
         # mod_AZs = False
 
-        except EC2ResponseError, e:
+        except EC2ResponseError as e:
             handle_exception(e)
             pass
 
-        except Exception, e:
+        except Exception as e:
             handle_exception(e)
             return 1
 
