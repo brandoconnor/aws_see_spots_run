@@ -29,6 +29,8 @@ last_mod_time = set when change happens (across all code and on tag_init)
 last_mod_type = action taken last
 '''
 #XXX do I need to "re-get" an ASG at any point here after tagging?
+#TODO: actually implement dry_run in tagging
+
 import argparse
 import ast
 import boto
@@ -42,45 +44,38 @@ from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):
-    verbose = dry_run_necessaries(args.dry_run, args.verbose)
-    for region in boto.ec2.regions():
+    (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
+    excluded_regions = ['cn-north-1', 'us-gov-west-1'] #TODO: make this list an attribute in the chef recipe
+    for region in [ r.name for r in boto.ec2.regions() if r.name not in excluded_regions ]:
         try:
-            print_verbose('Starting pass on %s' % region.name ,verbose)
-            ec2_conn = boto.ec2.connect_to_region(region.name)
-            as_conn = boto.ec2.autoscale.connect_to_region(region.name)
+            print_verbose('Starting pass on %s' % region)
+            ec2_conn = boto.ec2.connect_to_region(region)
+            as_conn = boto.ec2.autoscale.connect_to_region(region)
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
             for launch_config in spot_LCs:
                 spot_LC_groups = [ g for g in all_groups if g.launch_config_name == launch_config.name ]
                 for as_group in spot_LC_groups:
                     if not [ t for t in as_group.tags if t.key == 'SSR_config' ]:
-                        print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % as_group.name, verbose)
-                        init_as_group_tags(as_group, args.min_healthy_AZs, verbose)
+                        print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % as_group.name)
+                        init_as_group_tags(as_group, args.min_healthy_AZs)
 
                     elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                        print_verbose('Not managing group %s as SSR_enabled set to false.' % as_group.name, verbose)
+                        print_verbose('Not managing group %s as SSR_enabled set to false.' % as_group.name)
 
                     elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                        print_verbose('Group %s is SSR managed. Verifying all config values in place.' % as_group.name, verbose)
-                        # this could be made into a reusable function passed a list
-                        config_dict = get_tag_dict_value(as_group, 'SSR_config')
+                        print_verbose('Group %s is SSR managed. Verifying all config values in place.' % as_group.name)
                         config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', ]
-                        if not all(key in config_dict.keys() for key in config_keys):
-                            print_verbose("Not all config keys found. Initializing.", verbose)
-                            init_as_group_tags(as_group, args.min_healthy_AZs, verbose)
-                        else:
-                            print_verbose("All config keys found.", verbose)
-                        ###XXX working here
+                        if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys):
+                            init_as_group_tags(as_group, args.min_healthy_AZs)
+
                         zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
-                        if not get_tag_dict_value(as_group, 'AZ_status') or not all(z in get_tag_dict_value(as_group, 'AZ_status').keys() for z in zones): #TODO verify all AZs are in this dict and if not, recreate
-                            print_verbose("Not all zones found. reiniting %s, %s" % (zones,get_tag_dict_value(as_group, 'AZ_status').keys()) , verbose)
+                        if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                             init_AZ_status(as_group)
-                        else:
-                            print_verbose("All zone keys in place.", verbose)
                     else:
                         raise Exception("SSR_enabled tag found for %s but isn't a valid value." % (as_group.name,))
 
-            print_verbose('Done with pass on %s' % region.name, verbose)
+            print_verbose('Done with pass on %s' % region)
 
         except EC2ResponseError as e:
             handle_exception(e)
@@ -94,10 +89,10 @@ def main(args):
             handle_exception(e)
             return 1
 
-    print_verbose("All regions complete", verbose)
+    print_verbose("All regions complete")
 
 
-def init_as_group_tags(as_group, min_AZs, verbose):
+def init_as_group_tags(as_group, min_AZs):
     try:
         config = get_launch_config(as_group)
         init_AZ_status(as_group)
@@ -152,22 +147,33 @@ def create_tag(as_group, key, value):
         as_tag = Tag(key=key,
                     value=value,
                     resource_id=as_group.name)
-        return as_group.connection.create_or_update_tags([as_tag])
-    except BotoServerError as e:
+        print_verbose("Creating tag for %s." % key)
+        if not dry_run:
+            return as_group.connection.create_or_update_tags([as_tag])
+        else:
+            return True
+    except BotoServerError as e: # this often indicates tag limit has been exceeded
         handle_exception(e)
-        delete_AZ_tags(as_group)
-        #set_SSR_disabled(as_group) #XXX
+        set_SSR_disabled(as_group)
+        delete_tag(as_group, 'AZ_status')
 
 
-def delete_AZ_tags(as_group):
-    ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-    all_zones = [ z.name for z in ec2_conn.get_all_zones() ]
-    tag_list = [ t for t in as_group.tags if t.key in all_zones ]
+def delete_tag(as_group, tag_key):
+    tag_list = [ t for t in as_group.tags if t.key in tag_key ]
     as_group.connection.delete_tags(tag_list)
 
 
-def set_SSR_disabled(as_group):
+def set_SSR_disabled(as_group): #TODO: implement
     pass
+
+
+def verify_tag_dict_keys(as_group, tag_name, key_list):
+    if not get_tag_dict_value(as_group, tag_name) or not all(key in get_tag_dict_value(as_group, tag_name).keys() for key in key_list):
+        print_verbose("Tag not found or not all expected keys found for %s. Initializing." % tag_name)
+        return False
+    else:
+        print_verbose("All expected keys found for %s." % tag_name)
+        return True
 
 
 if __name__ == "__main__":

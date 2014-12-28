@@ -16,13 +16,13 @@ from collections import Counter
 from datetime import datetime, timedelta
 
 
-def match_AZs_on_elbs(as_group, dry_run, verbose):
+def match_AZs_on_elbs(as_group):
     try:
         elb_conn = boto.ec2.elb.connect_to_region(as_group.connection.region.name)
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)
             if not elb.availability_zones == as_group.availability_zones:
-                print_verbose("AZs for ELB don't match that of the as_group. Aligning them now.", verbose)
+                print_verbose("AZs for ELB don't match that of the as_group. Aligning them now.")
                 if not dry_run:
                     elb.enable_zones(as_group.availability_zones)
 
@@ -31,10 +31,10 @@ def match_AZs_on_elbs(as_group, dry_run, verbose):
         return 1
 
 
-def modify_as_group_AZs(as_group, good_AZs, dry_run, verbose):
+def modify_as_group_AZs(as_group, good_AZs):
     try:
         as_group.availability_zones = good_AZs
-        print("Updating %s with AZs %s" % (as_group.name, good_AZs), verbose)
+        print_verbose("Updating %s with AZs %s" % (as_group.name, good_AZs))
             if not dry_run:
                 as_group.update()
                 if as_group.load_balancers:

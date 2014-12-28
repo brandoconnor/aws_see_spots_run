@@ -11,11 +11,12 @@ from get_prices import *
 
 
 def main(args):
-    verbose = dry_run_necessaries(args.dry_run, args.verbose)
-    for region in boto.ec2.regions():
+    (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
+    excluded_regions = ['cn-north-1', 'us-gov-west-1'] #TODO: make this list an attribute in the chef recipe
+    for region in [ r.name for r in boto.ec2.regions() if r.name not in excluded_regions ]:
         try:
-            print_verbose('Starting pass on %s' % region.name ,verbose)
-            as_conn = boto.ec2.autoscale.connect_to_region(region.name)
+            print_verbose('Starting pass on %s' % region)
+            as_conn = boto.ec2.autoscale.connect_to_region(region)
             as_groups = get_SSR_groups(as_conn)
             for as_group in as_groups:
                 bid = get_bid(as_group)
@@ -29,12 +30,12 @@ def main(args):
 
                 get_as_group_health(as_group)
 
-            print_verbose('Done with pass on %s' % region.name ,verbose)
+            print_verbose('Done with pass on %s' % region)
 
 
-        # demand_price = get_ondemand_price(get_launch_config(as_group), verbose)
+        # demand_price = get_ondemand_price(get_launch_config(as_group))
         # switch_to_demand()
-        # modify_price(as_group, price.price * 1.1, dry_run, verbose)
+        # modify_price(as_group, price.price * 1.1)
         # good_AZs = []
         # raise_price = False
         # mod_AZs = False
@@ -69,9 +70,9 @@ def wasted():
         live_AZs = as_group.availability_zones
         live_AZs.sort()
         # maybe add back ASGs in a good state
-        print_verbose("No bad AZs %s using %s." % (ASG.name, LC.instance_type), verbose)
+        print_verbose("No bad AZs %s using %s." % (ASG.name, LC.instance_type))
         if good_AZs != live_AZs:
-            print_verbose("Current AZs %s but should be %s" % (live_AZs, good_AZs), verbose)
+            print_verbose("Current AZs %s but should be %s" % (live_AZs, good_AZs))
 
 
 if __name__ == "__main__":

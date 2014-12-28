@@ -60,7 +60,7 @@ def get_price_url(launch_config):
     return url
 
 
-def get_ondemand_price(launch_config, verbose):
+def get_ondemand_price(launch_config):
     try:
         region = launch_config.connection.region.name
         ec2_conn = boto.ec2.connect_to_region(region)
@@ -74,7 +74,7 @@ def get_ondemand_price(launch_config, verbose):
         regional_prices_json = [ r for r in prices_dict if r['region'] == region ][0]['instanceTypes']
         instance_class_prices_json = [ r for r in regional_prices_json if instance_size in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
         price = float([ e for e in instance_class_prices_json['sizes'] if e['size'] == instance_size ][0]['valueColumns'][0]['prices']['USD'])
-        print_verbose("On demand price for %s in %s is %s" % (instance_size, region, price), verbose)
+        print_verbose("On demand price for %s in %s is %s" % (instance_size, region, price))
         return price
 
     except Exception as e:

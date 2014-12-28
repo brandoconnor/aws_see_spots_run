@@ -17,12 +17,12 @@ def main():
     pass
 
 # turns out this method is not needed
-def update_LC_by_cfn(as_group, new_bid, dry_run, verbose):
+def update_LC_by_cfn(as_group, new_bid):
     cfn_conn = boto.cloudformation.connect_to_region(as_group.connection.region.name)
     stack_name = [ t.value for t in as_group.tags if t.key == 'aws:cloudformation:stack-name' ][0]
 
 
-def modify_price(as_group, new_bid, dry_run, verbose):
+def modify_price(as_group, new_bid):
     try:
         old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-13] + id_generator()
@@ -56,14 +56,14 @@ def modify_price(as_group, new_bid, dry_run, verbose):
             as_group.launch_config_name = launch_config.name
             if not dry_run:
                 print_verbose("Created LC %s with price %s and applying to ASG %s" %
-                        (launch_config.name , new_bid, as_group.name), verbose)
+                        (launch_config.name , new_bid, as_group.name))
                 as_group.update()
             else:
                 print_verbose("Created LC %s with price %s but NOT applying to ASG %s" %
-                        (launch_config.name , new_bid, as_group.name), True)
+                        (launch_config.name , new_bid, as_group.name))
 
         #TODO: delete old LC?
-        print_verbose("Autoscaling group launch configuration update complete.", verbose)
+        print_verbose("Autoscaling group launch configuration update complete.")
 
     #TODO readd boto
     except EC2ResponseError as e:

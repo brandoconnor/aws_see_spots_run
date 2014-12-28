@@ -11,22 +11,30 @@ import requests
 import demjson
 
 
-def dry_run_necessaries(dry_run, verbose):
-    if dry_run:
+def dry_run_necessaries(d, v):
+    global verbose
+    global dry_run
+    verbose = False
+    dry_run = False
+    if d:
         print("This is a dry run. Actions will not be executed and output is verbose.")
         verbose = True
-    return verbose
+        dry_run = True
+    elif v:
+        verbose = True
+    return verbose, dry_run
 
 
-def print_verbose(message, verbose):
-    if verbose:
-        print(message)
+def print_verbose(*args):
+   if verbose:
+        for arg in args:
+            print(arg)
 
 
 def handle_exception(exception):
     exc_traceback = sys.exc_info()[2]
-    print_verbose("Exception caught on line %s of %s: %s" % 
-            (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)), True)
+    print("Exception caught on line %s of %s: %s" % 
+            (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
 
 
 def get_tag_dict_value(as_group, tag_key):
@@ -34,6 +42,7 @@ def get_tag_dict_value(as_group, tag_key):
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
     except:
         return False
+
 
 def get_potential_AZs(as_group):
     try:
@@ -145,7 +154,7 @@ def get_ondemand_price(launch_config, verbose):
         regional_prices_json = [ r for r in prices_dict if r['region'] == region ][0]['instanceTypes']
         instance_class_prices_json = [ r for r in regional_prices_json if launch_config.instance_type in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
         price = float([ e for e in instance_class_prices_json if e['size'] == launch_config.instance_type ][0]['valueColumns'][0]['prices']['USD'])
-        print_verbose("On demand price for %s in %s is %s" % (launch_config.instance_type, region, price), verbose)
+        print_verbose("On demand price for %s in %s is %s" % (launch_config.instance_type, region, price))
         return price
 
     except Exception as e:
