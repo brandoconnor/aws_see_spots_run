@@ -14,8 +14,7 @@ from datetime import datetime, timedelta
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    excluded_regions = ['cn-north-1', 'us-gov-west-1'] #TODO: make this list an attribute in the chef recipe
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in excluded_regions ]:
+    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
             ec2_conn = boto.ec2.connect_to_region(region)
             pending_requests = []
@@ -52,4 +51,5 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-m', '--minutes', type=int, default=10, help="Minutes before a spot request is considered stale. Default: 10")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
+    parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
     sys.exit(main(parser.parse_args()))

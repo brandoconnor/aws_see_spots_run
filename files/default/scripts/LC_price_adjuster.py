@@ -11,10 +11,11 @@ from AWS_see_spots_run_common import *
 from  boto.ec2.autoscale.launchconfig import LaunchConfiguration
 from boto.exception import EC2ResponseError, BotoServerError
 
-# NOTE: when flipping to ondemand, I think a special state is required where all potential AZs are added back.
+# NOTE: when flipping to ondemand, we need to on a temp basis, allow all potential AZs for both the ELB and AZs.
 
 def main():
     pass
+
 
 # turns out this method is not needed
 def update_LC_by_cfn(as_group, new_bid):
@@ -62,10 +63,9 @@ def modify_price(as_group, new_bid):
                 print_verbose("Created LC %s with price %s but NOT applying to ASG %s" %
                         (launch_config.name , new_bid, as_group.name))
 
-        #TODO: delete old LC?
         print_verbose("Autoscaling group launch configuration update complete.")
+        old_launch_config.delete()
 
-    #TODO readd boto
     except EC2ResponseError as e:
         handle_exception(e)
         pass

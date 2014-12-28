@@ -4,7 +4,6 @@
 # other reasons. This script will notice that situation and take action to remove bad AZs from the
 # ASG in question.
 
-import argparse
 import boto
 import json
 import sys

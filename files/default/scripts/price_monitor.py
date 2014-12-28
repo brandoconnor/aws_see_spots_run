@@ -12,8 +12,7 @@ from get_prices import *
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    excluded_regions = ['cn-north-1', 'us-gov-west-1'] #TODO: make this list an attribute in the chef recipe
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in excluded_regions ]:
+    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
             print_verbose('Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
@@ -80,4 +79,5 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
     sys.exit(main(parser.parse_args()))

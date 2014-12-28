@@ -1,30 +1,15 @@
 #!/usr/bin/env python3
 '''
-Tagger should be run on a periodic basis (default once an hour) to tag new ASGs
-that spring into existence and correct situations where tags are missing
+Tagger runs on a periodic basis to tag autoscaling groups, providing the persistence
+needed for spot management.
 
 All values aside from AZ_status should be a set just once. If a user wants to
-override a tag value, that will be honored and not overridden by automation.
-
-Only 10 tags are allowed per as_group so these need to be used sparingly.
-Keys should be:
-~148 chars
-SSR_config = { 'SSR_enabled': True/False, 'original_bid': '.01', 'min_AZs': '3', 'LC_name': 'launch_config_name'}
-This could be condensed into a single, parsable value with ALL AZs but we'd need to be smarter about chars used
-<individual_AZ> = { 'use':True,'health':[1, 0, 1],#} # 'last_update':'epoch'} epoch not needed?
+override a tag value, that will be honored and not overridden by SSR.
 
 #TODO: implement:
 demand_expiration = epoch_time_to_check_if_demand_can_be_killed (set in attr default 55m)
 
-details for above:
-original_bid = .10 (price during initial tagging - only set once)
-spot_LC_name = launch_config_name (if this changes, update all other tags, disable SSR if no longer spot)
-min_azs = 3 (set in default attributes)
-
-also possible:
-AZ_status = { 'us-east-1a':{see individual_AZ below},'us-east-1b':{},'us-east-1c':{},'...':'...'}
-
-Are these needed? - would be useful for debugging
+possibly useful in SSR_config:
 last_mod_time = set when change happens (across all code and on tag_init)
 last_mod_type = action taken last
 '''
@@ -36,6 +21,7 @@ import ast
 import boto
 import sys
 import time
+#TODO: maybe pair this back to only those needed or go to a tiered import model
 from AWS_see_spots_run_common import *
 from boto import ec2
 from boto.ec2 import autoscale
@@ -45,8 +31,7 @@ from boto.exception import BotoServerError, EC2ResponseError
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    excluded_regions = ['cn-north-1', 'us-gov-west-1'] #TODO: make this list an attribute in the chef recipe
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in excluded_regions ]:
+    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
             print_verbose('Starting pass on %s' % region)
             ec2_conn = boto.ec2.connect_to_region(region)
@@ -181,4 +166,5 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
     sys.exit(main(parser.parse_args()))

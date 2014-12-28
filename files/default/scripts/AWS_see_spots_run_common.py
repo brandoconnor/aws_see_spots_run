@@ -10,7 +10,7 @@ from boto import ec2
 import requests
 import demjson
 
-
+# common
 def dry_run_necessaries(d, v):
     global verbose
     global dry_run
@@ -37,6 +37,23 @@ def handle_exception(exception):
             (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
 
 
+def get_launch_config(as_group):
+    as_group.connection
+    return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
+
+
+def get_image(as_group):
+    try:
+        launch_config = get_launch_config(as_group)
+        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+        image = ec2_conn.get_image(launch_config.image_id)
+        return image
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+###
+
+# only needed by tagger
 def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
@@ -55,32 +72,18 @@ def get_potential_AZs(as_group):
         sys.exit(1)
 
 
-def get_healthy_AZs(as_group):
-    # just parse tags to fetch this
-    pass
-
-
-def get_launch_config(as_group):
-    as_group.connection
-    return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
-
-
-def get_image(as_group):
-    try:
-        launch_config = get_launch_config(as_group)
-        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-        image = ec2_conn.get_image(launch_config.image_id)
-        return image
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
-
-
 def get_bid(as_group):
     config = get_launch_config(as_group)
     return config.spot_price
 
+###
 
+# only needed by monitor(?)
+def get_healthy_AZs(as_group):
+    # just parse tags to fetch this
+    pass
+
+# for getting specific AZs health. XXX is this needed?
 def get_AZ_health(as_group, AZ):
     # returns True or False depending on health (2/3 health checks == 0)
     pass
