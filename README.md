@@ -61,13 +61,12 @@ example:
 
 # TODO
 
-## add code for LC price adjuster
 ## introduce dry run capability to each script
-## rubocop, food critic, ChefSpec, testing, ect
+## rubocop, foodcritic, ChefSpec, unittest, ect
+## test on different versions of python
 
 # Sticky considerations
 ## AZs with ELBs, do we need to change their AZs also?
 
 # potential features:
 ## instance_type_adjuster
-

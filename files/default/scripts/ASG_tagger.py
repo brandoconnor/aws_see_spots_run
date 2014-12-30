@@ -21,7 +21,6 @@ import ast
 import boto
 import sys
 import time
-#TODO: maybe pair this back to only those needed or go to a tiered import model
 from AWS_see_spots_run_common import *
 from boto import ec2
 from boto.ec2 import autoscale
@@ -30,6 +29,8 @@ from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):
+    global verbose
+    global dry_run
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
     for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
@@ -41,19 +42,19 @@ def main(args):
             for launch_config in spot_LCs:
                 spot_LC_groups = [ g for g in all_groups if g.launch_config_name == launch_config.name ]
                 for as_group in spot_LC_groups:
+                    print_verbose("Evaluating %s" % as_group.name)
                     if not [ t for t in as_group.tags if t.key == 'SSR_config' ]:
-                        print_verbose('Group %s is a candidate for SSR management. Applying all tags...' % as_group.name)
+                        print_verbose('Tags not found. Applying now.')
                         init_as_group_tags(as_group, args.min_healthy_AZs)
 
                     elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                        print_verbose('Not managing group %s as SSR_enabled set to false.' % as_group.name)
+                        print_verbose('SSR_config not enabled.')
 
                     elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                        print_verbose('Group %s is SSR managed. Verifying all config values in place.' % as_group.name)
-                        config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', ]
+                        print_verbose('SSR management enabled. Verifying all config values in place.')
+                        config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration',]
                         if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys):
                             init_as_group_tags(as_group, args.min_healthy_AZs)
-
                         zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
                         if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                             init_AZ_status(as_group)
@@ -85,9 +86,9 @@ def init_as_group_tags(as_group, min_AZs):
                 'enabled': True,
                 'original_bid': get_bid(as_group),
                 'min_AZs': min_AZs,
-                'LC_name': as_group.launch_config_name,
+                'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars and final chars are almost always unique so we need to cut this short
+                "demand_expiration": False, # when the group switches to ondemand, set this to epoch_now + default['attr'] mins
                 }
-                #"demand_expiration": None, # when the group switches to ondemand, set this to epoch_now + default['attr'] mins
         create_tag(as_group, 'SSR_config', config_dict)
     except Exception as e:
         handle_exception(e)
@@ -113,34 +114,6 @@ def init_AZ_status(as_group):
         sys.exit(1)
 
 
-def get_AZ_tag(as_group, AZ):
-    return [ tag for tag in as_group.tags if tag.key == AZ ][0].value
-
-
-def set_health(as_group, AZ, health):
-    AZ_status = get_AZ_tag(as_group, AZ)
-    AZ_status['health'].pop()
-    AZ_status['health'].insert(0, health)
-    tag = Tag(key=AZ,
-            value=AZ_status,
-            resource_id=as_group.name)
-    as_group.connection.create_or_update_tags(tag)
-
-
-def create_tag(as_group, key, value):
-    try:
-        as_tag = Tag(key=key,
-                    value=value,
-                    resource_id=as_group.name)
-        print_verbose("Creating tag for %s." % key)
-        if not dry_run:
-            return as_group.connection.create_or_update_tags([as_tag])
-        else:
-            return True
-    except BotoServerError as e: # this often indicates tag limit has been exceeded
-        handle_exception(e)
-        set_SSR_disabled(as_group)
-        delete_tag(as_group, 'AZ_status')
 
 
 def delete_tag(as_group, tag_key):
@@ -157,7 +130,7 @@ def verify_tag_dict_keys(as_group, tag_name, key_list):
         print_verbose("Tag not found or not all expected keys found for %s. Initializing." % tag_name)
         return False
     else:
-        print_verbose("All expected keys found for %s." % tag_name)
+        print_verbose("Expected keys found for %s." % tag_name)
         return True
 
 
