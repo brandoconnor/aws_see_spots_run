@@ -38,11 +38,40 @@ def main(args):
 
         except EC2ResponseError as e:
             handle_exception(e)
-            pass
 
         except Exception as e:
             handle_exception(e)
             return 1
+
+    print_verbose("All regions complete")
+
+
+def probably_throwaway_code():
+    offending_AZ = Counter([ json.loads(a.Details)['Availability Zone'] for a in g.get_activities() if
+                        a.status_code != 'Successful' and
+                        'cancelled' in a.status_message and
+                        a.end_time > datetime.utcnow() - timedelta(minutes=60) ] ).most_common(1)
+
+    if offending_AZ and offending_AZ[0][1] >= 3: # relies on order of the tuple returned
+        ## alter instance type to one one larger of the same family
+        good_AZs = get_healthy_AZs(as_group)
+        offending_AZ = offending_AZ[0][0]
+        if offending_AZ in good_AZs:
+            good_AZs.remove(offending_AZ)
+        if len(good_AZs) >= 2:
+            as_group.availability_zones = good_AZs
+
+    else:
+        good_AZs = get_healthy_AZs(as_group) # get them via tag and json parsing
+        good_AZs.sort()
+        live_AZs = as_group.availability_zones
+        live_AZs.sort()
+        # maybe add back ASGs in a good state
+        print_verbose("No bad AZs %s using %s." % (ASG.name, LC.instance_type))
+        if good_AZs != live_AZs:
+            print_verbose("Current AZs %s but should be %s" % (live_AZs, good_AZs))
+
+
 
 
 if __name__ == "__main__":

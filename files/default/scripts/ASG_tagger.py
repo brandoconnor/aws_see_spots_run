@@ -13,7 +13,6 @@ possibly useful in SSR_config:
 last_mod_time = set when change happens (across all code and on tag_init)
 last_mod_type = action taken last
 '''
-#XXX do I need to "re-get" an ASG at any point here after tagging?
 #TODO: actually implement dry_run in tagging
 
 import argparse
@@ -39,13 +38,13 @@ def main(args):
             as_conn = boto.ec2.autoscale.connect_to_region(region)
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
-            
+
             for launch_config in spot_LCs:
                 spot_LC_groups = [ g for g in all_groups if g.launch_config_name == launch_config.name ]
-                
+
                 for as_group in spot_LC_groups:
                     print_verbose("Evaluating %s" % as_group.name)
-                    
+
                     if not [ t for t in as_group.tags if t.key == 'SSR_config' ]:
                         print_verbose('Tags not found. Applying now.')
                         init_as_group_tags(as_group, args.min_healthy_AZs)
@@ -73,11 +72,9 @@ def main(args):
 
         except EC2ResponseError as e:
             handle_exception(e)
-            pass
 
         except BotoServerError as e:
             handle_exception(e)
-            pass
 
         except Exception as e:
             handle_exception(e)
@@ -125,10 +122,6 @@ def init_AZ_status(as_group):
 def delete_tag(as_group, tag_key):
     tag_list = [ t for t in as_group.tags if t.key in tag_key ]
     as_group.connection.delete_tags(tag_list)
-
-
-def set_SSR_disabled(as_group): #TODO: implement
-    pass
 
 
 def verify_tag_dict_keys(as_group, tag_name, key_list):

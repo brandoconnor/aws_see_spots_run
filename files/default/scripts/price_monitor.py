@@ -42,11 +42,13 @@ def main(args):
 
         except EC2ResponseError as e:
             handle_exception(e)
-            pass
 
         except Exception as e:
             handle_exception(e)
             return 1
+
+    print_verbose("All regions complete")
+
 
 def update_tags(as_conn, health_tags):
     try:
@@ -54,7 +56,7 @@ def update_tags(as_conn, health_tags):
     except Exception as e:
         handle_exception(e)
         sleep(1)
-        as_conn.create_or_update_tags(health_tags)
+        update_tags(as_conn, health_tags)
 
 
 if __name__ == "__main__":

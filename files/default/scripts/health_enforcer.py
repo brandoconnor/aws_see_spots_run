@@ -6,11 +6,11 @@ import argparse
 import boto
 import sys
 import time
+from AWS_see_spots_run_common import *
 from boto import ec2
 from boto.ec2 import autoscale, elb
-from AWS_see_spots_run_common import *
 from boto.exception import BotoServerError, EC2ResponseError
-
+from boto.ec2.autoscale import LaunchConfiguration
 
 def main(args):
     global verbose
@@ -36,23 +36,24 @@ def main(args):
                             # kill all demand instances that were created
                             ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
                             all_ec2_instances = ec2_conn.get_all_instances()
-                            print_verbose("Looking at %s instances for potential termination" % len(as_group.instances))
+                            print_verbose("Looking at %s instances for potential termination", len(as_group.instances))
                             for instance in as_group.instances:
                                 if not [ i for i in all_ec2_instances if i.instances[0].id == instance.instance_id ][0].instances[0].spot_instance_request_id and not dry_run:
                                     as_conn.terminate_instance(instance.instance_id, decrement_capacity=False)
                     else:
                         print_verbose('extending the life of demand instances as we cant fulfill with spots still')
                         set_tag_dictionary_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * 60) )
-
+                
+                as_group = reload_as_group(as_group)
                 if not sorted(as_group.availability_zones) == sorted(healthy_zones):
                     print_verbose("Healthy zones and zones in use dont match", healthy_zones, '!=', as_group.availability_zones)
                     if len(healthy_zones) >= args.min_healthy_AZs:
                         print_verbose('Modifying zones accordingly.')
                         modify_as_group_AZs(as_group, healthy_zones)
                     else:
-                        # need to modify bid instead of removing AZs
-                        best_bid = find_best_bid(as_group, args.min_healthy_AZs)
-                        print_verbose("best bid possible given AZ minimum is %s" % best_bid)
+                        print_verbose('Bid will need to be modified')
+                        best_bid = find_best_bid_price(as_group, args.min_healthy_AZs)
+                        print_verbose("best bid possible given AZ minimum is", best_bid)
                         if best_bid:
                             modify_price(as_group, best_bid)
                         else:
@@ -68,30 +69,43 @@ def main(args):
 
         except EC2ResponseError as e:
             handle_exception(e)
-            pass
 
         except Exception as e:
             handle_exception(e)
             return 1
 
+    print_verbose("All regions complete")
+
+
+def reload_as_group(as_group):
+    return as_group.connection.get_all_groups([as_group.name])[0]
+
 
 def find_best_bid_price(as_group, min_healthy_AZs):
-    prices = get_current_spot_prices(as_group)
-    best_bid = sorted(prices, key=lambda price: price.price)[min_healthy_AZs - 1].price
-    max_bid = get_max_bid(as_group)
-    if best_bid > max_bid:
-        return False
-    else:
-        return best_bid
+    try:
+        prices = get_current_spot_prices(as_group)
+        best_bid = sorted(prices, key=lambda price: price.price)[min_healthy_AZs - 1].price
+        max_bid = get_max_bid(as_group)
+        if float(best_bid) > float(max_bid):
+            return False
+        else:
+            return best_bid
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def get_max_bid(as_group):
-    demand_price = get_ondemand_price(get_launch_config(as_group))
-    original_bid = get_tag_dict_value(as_group, 'SSR_config')['original_bid']
-    if demand_price < original_bid:
-        return original_bid
-    else:
-        return demand_price
+    try:
+        demand_price = get_ondemand_price(get_launch_config(as_group))
+        original_bid = get_tag_dict_value(as_group, 'SSR_config')['original_bid']
+        if float(demand_price) < float(original_bid):
+            return original_bid
+        else:
+            return demand_price
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def get_healthy_zones(as_group):
@@ -112,6 +126,7 @@ def set_tag_dictionary_value(as_group, tag_key, val_key, value):
 
 def modify_price(as_group, new_bid):
     try:
+        as_conn = boto.ec2.autoscale.connect_to_region(as_group.connection.region.name)
         old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-13] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
@@ -155,11 +170,9 @@ def modify_price(as_group, new_bid):
 
     except EC2ResponseError as e:
         handle_exception(e)
-        pass
 
     except BotoServerError as e:
         handle_exception(e)
-        pass
 
     except Exception as e:
         handle_exception(e)
@@ -189,7 +202,7 @@ def modify_as_group_AZs(as_group, healthy_zones):
             as_group.update()
             if as_group.load_balancers:
                 match_AZs_on_elbs(as_group)
-    
+
     except Exception as e:
         handle_exception(e)
         return 1
@@ -200,6 +213,6 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
-    parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    parser.add_argument('-m', '--min_healthy_AZs', default=3, type=int, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
     parser.add_argument('-x', '--demand_expiration', default=50, type=int, help='Length of time in minutes we should let an ASG operate with on demand before checking for spot availability. Default=50')
     sys.exit(main(parser.parse_args()))
