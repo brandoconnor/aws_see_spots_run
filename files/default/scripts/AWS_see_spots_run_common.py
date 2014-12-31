@@ -86,7 +86,7 @@ def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
     except:
-        return False
+        return False #XXX problematic?
 
 
 def get_potential_AZs(as_group):
@@ -135,7 +135,11 @@ def get_new_health_tag(as_group, health_dict):
 
 
 def get_SSR_groups(as_conn):
-    return [ g for g in as_conn.get_all_groups() if [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, t.key)['enabled'] ] ]
+    try:
+        return [ g for g in as_conn.get_all_groups() if [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, t.key)['enabled'] ] ] #XXX misbehaving
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def get_ondemand_price(launch_config):
