@@ -28,13 +28,13 @@ def main(args):
                 if current_prices:
                     print_verbose("Checking prices for %s" % as_group.name)
                     for price in current_prices:
-                        if price.price > bid * 1.1: #NOTE: bid must be 10% higher than the price in order to remain unchanged (make this configurable?)
+                        if price.price > bid:# * 1.1: #NOTE: bid must be 10% higher than the price in order to remain unchanged (make this configurable?)
                             health_dict[price.availability_zone[-1]] = 1
                         else:
                             health_dict[price.availability_zone[-1]] = 0
                     health_tags.append(get_new_health_tag(as_group, health_dict))
             if health_tags and not dry_run:
-                as_conn.create_or_update_tags(health_tags)
+                update_tags(as_conn, health_tags)
                 print_verbose("All tags updated!")
 
             print_verbose('Done with pass on %s' % region)
@@ -47,6 +47,14 @@ def main(args):
         except Exception as e:
             handle_exception(e)
             return 1
+
+def update_tags(as_conn, health_tags):
+    try:
+        as_conn.create_or_update_tags(health_tags)
+    except Exception as e:
+        handle_exception(e)
+        sleep(1)
+        as_conn.create_or_update_tags(health_tags)
 
 
 if __name__ == "__main__":

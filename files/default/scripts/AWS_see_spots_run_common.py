@@ -15,6 +15,9 @@ from boto.exception import BotoServerError
 from datetime import datetime, timedelta
 from time import sleep
 from collections import Counter
+#if sys.version_info[0] == 2:
+#    from __future__ import print_function
+#XXX move these functions into scripts where not shared
 
 # common
 def dry_run_necessaries(d, v):
@@ -44,8 +47,12 @@ def handle_exception(exception):
 
 
 def get_launch_config(as_group):
-    as_group.connection
-    return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
+    try:
+        return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
+    except Exception as e:
+        handle_exception(e)
+        sleep(1)
+        return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
 
 
 def get_image(as_group):
@@ -61,7 +68,7 @@ def get_image(as_group):
 
 
 def create_tag(as_group, key, value):
-    sleep(1) # simplest way to avoid throttling problems
+    sleep(1) #XXX simplest way to avoid throttling problems
     try:
         tag = Tag(key=key,
                     value=value,
@@ -96,11 +103,20 @@ def get_potential_AZs(as_group):
 
 
 def get_bid(as_group):
-    if dry_run:
-        sleep(1) # often throttled when running price monitor
-    config = get_launch_config(as_group)
-    return config.spot_price
-
+    try:
+        config = get_launch_config(as_group)
+        if config.spot_price:
+            return config.spot_price
+        else:
+            return get_tag_dict_value(as_group, 'SSR_config')['original_bid']
+    except Exception as e:
+        handle_exception(e)
+        sleep(1)
+        config = get_launch_config(as_group)
+        if config.spot_price:
+            return config.spot_price
+        else:
+            return get_tag_dict_value(as_group, 'SSR_config')['original_bid']
 ###
 
 # only needed by monitor(?)
@@ -171,33 +187,13 @@ def get_current_spot_prices(as_group):
         sys.exit(1)
 
 
-def get_price_url(launch_config, ec2_conn):
-    # nabbed URL list from https://github.com/iconara/ec2pricing/blob/master/public/app/ec2pricing/config.js
-    base_url = 'http://a0.awsstatic.com/pricing/1/ec2/'
-
-    previous_gen_types = ['m1', 'm2', 'c2', 'cc2', 'cg1', 'cr1', 'hi1']
-    if launch_config.instance_type.split('.')[0] in previous_gen_types:
-        base_url += 'previous-generation/'
-
-    image = ec2_conn.get_image(launch_config.image_id)
-
-    if image.platform == 'windows':
-        base_url += 'mswin'
-    elif 'SUSE Linux Enterprise Server' in image.description:
-        base_url += 'sles'
-    else:
-        base_url += 'linux'
-    url = base_url + '-od.min.js'
-    return url
-
-
 def get_ondemand_price(launch_config, verbose):
     try:
         region = launch_config.connection.region.name
         ec2_conn = boto.ec2.connect_to_region(region)
         image = ec2_conn.get_image(launch_config.image_id)
 
-        url = get_price_url(launch_config, ec2_conn)
+        url = get_price_url(launch_config)
         resp = requests.get(url)
         json_str = str(resp.text.split('callback(')[1])[:-2] # need to remove comments and callback syntax before parsing the broken json
         prices_dict = demjson.decode(json_str)['config']['regions']
@@ -234,7 +230,7 @@ def get_current_spot_prices(as_group):
                 product_description=os_type, 
                 end_time=end_time, 
                 start_time=start_time, 
-                instance_type= get_launch_config(as_group).instance_type
+                instance_type=get_launch_config(as_group).instance_type
                 )
         return prices # returns a list of ALL spot prices for all AZs
 
@@ -250,7 +246,8 @@ def get_price_url(launch_config):
     previous_gen_types = ['m1', 'm2', 'c2', 'cc2', 'cg1', 'cr1', 'hi1']
     if launch_config.instance_type.split('.')[0] in previous_gen_types:
         base_url += 'previous-generation/'
-
+    
+    ec2_conn = boto.ec2.connect_to_region(launch_config.connection.region.name)
     image = ec2_conn.get_image(launch_config.image_id)
 
     if image.platform == 'windows':
@@ -269,7 +266,7 @@ def get_ondemand_price(launch_config):
         ec2_conn = boto.ec2.connect_to_region(region)
         image = ec2_conn.get_all_images([launch_config.image_id])[0]
 
-        url = get_price_url(as_conn.get_launch_config(as_group))
+        url = get_price_url(get_launch_config(as_group))
         resp = requests.get(url)
         json_str = str(resp.text.split('callback(')[1])[:-2] # need to remove comments and callback syntax before parsing the broken json
         price_dict = demjson.decode(json_str)['config']['regions']
