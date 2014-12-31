@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 '''
 Common functions used throughout this cookbook's codebase.
 '''

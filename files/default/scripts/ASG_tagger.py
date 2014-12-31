@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 '''
 Tagger runs on a periodic basis to tag autoscaling groups, providing the persistence
 needed for spot management.

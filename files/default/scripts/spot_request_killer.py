@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 '''
 Kills stale spot requests which are unlikely to be fulfilled,
 allowing the request to shift a more viable AZ through SSR.

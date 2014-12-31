@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # health_enforcer.py
 #XXX implement dry_run and verbose stuffs
 
