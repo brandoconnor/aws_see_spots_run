@@ -12,7 +12,7 @@ default['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale'] = 10
 default['AWS_see_spots_run']['price_monitor']['interval'] = 10
 
 default['AWS_see_spots_run']['ASG_tagger']['interval'] = 30
-default['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs'] = 3
+default['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs'] = 2
 
 default['AWS_see_spots_run']['health_enforcer']['interval'] = 15
 default['AWS_see_spots_run']['health_enforcer']['demand_expiration'] = 50

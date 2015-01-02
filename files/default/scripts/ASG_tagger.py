@@ -27,34 +27,41 @@ def main(args):
             print_verbose('Starting pass on %s' % region)
             ec2_conn = boto.ec2.connect_to_region(region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
+
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
-            SSR_managed_demand_groups = [ g for g in all_groups if get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['demand_expiration'] != False ]
-            spot_LC_groups = [ g for g in as_conn.get_all_groups() if g.launch_config_name in [ s.name for s in spot_LCs ] ]
-            all_groups = spot_LC_groups + SSR_managed_demand_groups
+            spot_LC_groups = [ g for g in all_groups if g.launch_config_name in [ s.name for s in spot_LCs ] ]
+            previously_SSR_managed_groups = [ g for g in all_groups if get_tag_dict_value(g, 'SSR_config') and  get_tag_dict_value(g, 'SSR_config')['enabled'] == True ]
+            
+            all_groups = list(set(spot_LC_groups + previously_SSR_managed_groups))
             for as_group in all_groups:
                 print_verbose("Evaluating %s" % as_group.name)
-                # this latter condition happens if for whatever reason the tag value (a dict) can't be interpreted by ast.literal_eval()
+                # this latter condition can happen when tag value (a dict) can't be interpreted by ast.literal_eval()
                 if not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
                     print_verbose('Tags not found. Applying now.')
-                    init_as_group_tags(as_group, args.min_healthy_AZs)
+                    init_SSR_config_tag(as_group, args.min_healthy_AZs)
+                    init_AZ_status_tag(as_group)
 
                 elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                    print_verbose('SSR_config not enabled.')
+                    print_verbose('SSR_config DISABLED. Doing nothing.')
 
                 elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
                     print_verbose('SSR management enabled. Verifying all config values in place.')
-                    config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration', ] #NOTE: add a false entry here to start afresh with SSR tags
-
+                    config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration',]
+                    
                     # Checking 2 things here:
                     ## 1. all config keys exist: they could change (keys added) and in some cases during dev, it's helpful to create them afresh
                     ## 2. if launch config name changed for the group this indicates an update of the LC via cloudformation and the SSR_config tag should be reset
                     if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys) or not get_tag_dict_value(as_group, 'SSR_config')['LC_name'] == as_group.launch_config_name[-155:]:
-                        init_as_group_tags(as_group, args.min_healthy_AZs)
-
+                        init_SSR_config_tag(as_group, args.min_healthy_AZs)
                     zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
-                        init_AZ_status(as_group)
+                        init_AZ_status_tag(as_group)
+
+                elif args.reset_tags:
+                    init_SSR_config_tag(as_group, args.min_healthy_AZs)
+                    init_AZ_status_tag(as_group)
+                
                 else:
                     raise Exception("SSR_enabled tag found for %s but isn't a valid value." % (as_group.name,))
 
@@ -73,16 +80,15 @@ def main(args):
     print_verbose("All regions complete")
 
 
-def init_as_group_tags(as_group, min_healthy_AZs):
+def init_SSR_config_tag(as_group, min_healthy_AZs):
     try:
         config = get_launch_config(as_group)
-        init_AZ_status(as_group) #XXX needed?
         config_dict = {
                 'enabled': True,
                 'original_bid': get_bid(as_group), #XXX will this work when LC_name changes due to CFN change?
                 'min_AZs': min_healthy_AZs,
                 'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
-                "demand_expiration": False, #XXX this cannot change if LCs change due to shift to ondemand. Possibly create a function
+                "demand_expiration": False, #XXX this cannot change if LCs change due to shift to ondemand. Possibly create a function. Maybe set to True if ondemand not via SSR
                 }
         create_tag(as_group, 'SSR_config', config_dict)
     except Exception as e:
@@ -90,7 +96,7 @@ def init_as_group_tags(as_group, min_healthy_AZs):
         sys.exit(1)
 
 
-def init_AZ_status(as_group):
+def init_AZ_status_tag(as_group):
     try:
         potential_zones = get_potential_AZs(as_group)
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
@@ -123,4 +129,5 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
     parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    parser.add_argument('-r', '--reset_tags', action='store_true', default=False, help="Reset tags for all relevant as_groups. Default=False")
     sys.exit(main(parser.parse_args()))
