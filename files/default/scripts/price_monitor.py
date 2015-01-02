@@ -53,10 +53,14 @@ def main(args):
 def update_tags(as_conn, health_tags):
     try:
         as_conn.create_or_update_tags(health_tags)
-    except Exception as e:
-        handle_exception(e)
-        sleep(1)
-        update_tags(as_conn, health_tags)
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            update_tags(as_conn, health_tags)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

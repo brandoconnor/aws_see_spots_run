@@ -13,7 +13,6 @@ from boto.ec2.autoscale import Tag
 from boto.exception import BotoServerError
 from datetime import datetime, timedelta
 from time import sleep
-from collections import Counter
 #if sys.version_info[0] == 2:
 #    from __future__ import print_function
 
@@ -48,9 +47,13 @@ def get_launch_config(as_group):
     try:
         return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
     except BotoServerError as e:
-        handle_exception(e)
-        sleep(1)
-        return get_launch_config(as_group)
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return get_launch_config(as_group)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 
 
 def get_image(as_group):
@@ -76,9 +79,13 @@ def create_tag(as_group, key, value):
         return as_group.connection.create_or_update_tags([tag])
 
     except BotoServerError as e: # this often indicates tag limit has been exceeded
-        handle_exception(e)
-        sleep(1)
-        create_tag(as_group, key, value)
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return create_tag(as_group, key, value)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 ###
 
 # only needed by tagger
@@ -86,7 +93,7 @@ def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
     except:
-        return False #XXX problematic?
+        return False # this value needs to be tested each time
 
 
 def get_potential_AZs(as_group):
@@ -108,9 +115,13 @@ def get_bid(as_group):
         else:
             return get_tag_dict_value(as_group, 'SSR_config')['original_bid']
     except BotoServerError as e:
-        handle_exception(e)
-        sleep(1)
-        return get_bid(as_group)
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return get_bid(as_group)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 ###
 
 def get_AZ_health_list(as_group, AZ):
@@ -136,10 +147,16 @@ def get_new_health_tag(as_group, health_dict):
 
 def get_SSR_groups(as_conn):
     try:
-        return [ g for g in as_conn.get_all_groups() if [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, t.key)['enabled'] ] ] #XXX misbehaving
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
+        return [ g for g in as_conn.get_all_groups() if 
+                [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled'] ] ]
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return get_SSR_groups(as_conn)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 
 
 def get_ondemand_price(launch_config):
@@ -180,7 +197,6 @@ def get_current_spot_prices(as_group):
             os_type = 'Linux/UNIX'
         if as_group.vpc_zone_identifier:
             os_type += ' (Amazon VPC)'
-        print(as_group)
         prices = ec2_conn.get_spot_price_history(
                 product_description=os_type,
                 end_time=end_time,

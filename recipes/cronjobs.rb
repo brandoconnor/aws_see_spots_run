@@ -37,7 +37,7 @@ remote_directory "scripts" do
 end
 
 cron "ASG_tagger" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['min_healthy_AZs']} -v'"
+  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"
 end
 
@@ -47,7 +47,7 @@ cron "spot_request_killer" do
 end
 
 cron "spot_health_enforcer" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f health_enf -c 'python27 #{node['AWS_see_spots_run']['exec_path']}health_enforcer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['min_healthy_AZs']} -v'"
+  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f health_enf -c 'python27 #{node['AWS_see_spots_run']['exec_path']}health_enforcer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -v'"
   minute "*/#{node['AWS_see_spots_run']['health_enforcer']['interval']}"
 end
 
