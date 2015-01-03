@@ -57,6 +57,6 @@ cron "spot_price_monitor" do
 end
 
 cron "remove_old_launch_configs" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f del_LCs -c 'python27 #{node['AWS_see_spots_run']['exec_path']}remove_old_launch_configs.py -e #{node['AWS_see_spots_run']['excluded_regions']} -d -v'"
+  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f del_LCs -c 'python27 #{node['AWS_see_spots_run']['exec_path']}remove_old_launch_configs.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
   hour "0"
 end
