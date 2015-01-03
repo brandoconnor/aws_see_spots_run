@@ -19,7 +19,7 @@ def main(args):
             ec2_conn = boto.ec2.connect_to_region(region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
             as_groups = as_conn.get_all_groups()
-            all_spot_lcs = [ l for l in as_conn.get_all_launch_configurations() if l.spot_price ]
+            all_spot_lcs = get_spot_lcs(as_conn)
             pending_requests = []
             bad_statuses = json.loads('{"status-code": ["capacity-not-available", "capacity-oversubscribed", "price-too-low", "not-scheduled-yet", "launch-group-constraint", "az-group-constraint", "placement-group-constraint", "constraint-not-fulfillable" ]}')
             pending_requests.append(ec2_conn.get_all_spot_instance_requests(filters=bad_statuses))
@@ -58,6 +58,19 @@ def main(args):
             sys.exit(1)
 
     print_verbose("All regions complete")
+
+
+def get_spot_lcs(as_conn):
+    try:
+        return [ l for l in as_conn.get_all_launch_configurations() if l.spot_price ]
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return get_spot_lcs(as_conn)
+        else:
+            handle_exception(e)
+            sys.exit(1)
 
 
 if __name__ == "__main__":
