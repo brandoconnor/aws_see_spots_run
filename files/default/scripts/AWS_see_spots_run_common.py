@@ -16,7 +16,6 @@ from time import sleep
 #if sys.version_info[0] == 2:
 #    from __future__ import print_function
 
-# common
 def dry_run_necessaries(d, v):
     global verbose
     global dry_run
@@ -86,9 +85,30 @@ def create_tag(as_group, key, value):
         else:
             handle_exception(e)
             sys.exit(1)
-###
 
-# only needed by tagger
+
+def reload_as_group(as_group):
+    try:
+        return as_group.connection.get_all_groups([as_group.name])[0]
+
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return reload_as_group(as_group)
+
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
+def set_tag_dict_value(as_group, tag_key, val_key, value):
+    as_group = reload_as_group(as_group)
+    tag_val = get_tag_dict_value(as_group, tag_key)
+    tag_val[val_key] = value
+    create_tag(as_group, tag_key, tag_val)
+
+
 def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
@@ -122,13 +142,13 @@ def get_bid(as_group):
         else:
             handle_exception(e)
             sys.exit(1)
-###
+
 
 def get_AZ_health_list(as_group, AZ):
     return get_tag_dict_value(as_group, 'AZ_status')[AZ]['health']
 
 
-def get_new_health_tag(as_group, health_dict):
+def set_new_AZ_status_tag(as_group, health_dict):
     try:
         health_values = get_tag_dict_value(as_group, 'AZ_status')
         for k,v in health_dict.items():
@@ -138,7 +158,6 @@ def get_new_health_tag(as_group, health_dict):
         tag = Tag(key='AZ_status',
                 value=health_values,
                 resource_id=as_group.name)
-        #as_group.connection.create_or_update_tags([tag])
         return tag
     except Exception as e:
         handle_exception(e)

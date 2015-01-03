@@ -1,17 +1,13 @@
 #!/usr/bin/env python
-#
-# TODO: add a blurb up here
-#
 
 import argparse
 import ast
 import boto
-from boto import ec2
 import sys
 from AWS_see_spots_run_common import *
+from boto import ec2
 from boto.ec2 import autoscale
 from boto.exception import BotoServerError, EC2ResponseError
-
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
@@ -28,17 +24,16 @@ def main(args):
                 if current_prices:
                     print_verbose("Checking prices for %s" % as_group.name)
                     for price in current_prices:
-                        if price.price > bid:# * 1.1: #NOTE: bid must be 10% higher than the price in order to remain unchanged (make this configurable?)
+                        if price.price > bid: # * 1.1: #NOTE: make a feature to require buffer here?
                             health_dict[price.availability_zone[-1]] = 1
                         else:
                             health_dict[price.availability_zone[-1]] = 0
-                    health_tags.append(get_new_health_tag(as_group, health_dict))
+                    health_tags.append(set_new_AZ_status_tag(as_group, health_dict))
             if health_tags and not dry_run:
                 update_tags(as_conn, health_tags)
                 print_verbose("All tags updated!")
 
             print_verbose('Done with pass on %s' % region)
-
 
         except EC2ResponseError as e:
             handle_exception(e)
@@ -49,18 +44,6 @@ def main(args):
 
     print_verbose("All regions complete")
 
-
-def update_tags(as_conn, health_tags):
-    try:
-        as_conn.create_or_update_tags(health_tags)
-    except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            update_tags(as_conn, health_tags)
-        else:
-            handle_exception(e)
-            sys.exit(1)
 
 
 if __name__ == "__main__":

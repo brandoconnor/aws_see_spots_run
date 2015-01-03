@@ -34,10 +34,8 @@ def main(args):
                         if len(healthy_zones) >= get_min_AZs(as_group):
                             print_verbose('Woot! We can move back to spots at original bid price.')
                             modify_as_group_AZs(as_group, healthy_zones)
-                            as_group = reload_as_group(as_group) #XXX necessary?
                             modify_price(as_group, get_tag_dict_value(as_group, 'SSR_config')['original_bid'])
-                            as_group = reload_as_group(as_group) #XXX necessary
-                            set_tag_dictionary_value(as_group, 'SSR_config', 'demand_expiration', False)
+                            set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', False)
                             # kill all demand instances that were created
                             ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
                             all_ec2_instances = ec2_conn.get_all_instances()
@@ -47,7 +45,7 @@ def main(args):
                                     as_conn.terminate_instance(instance.instance_id, decrement_capacity=False)
                         else:
                             print_verbose('Extending the life of demand instances as we cant fulfill with spots still')
-                            set_tag_dictionary_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * 5) ) #XXX change to 60
+                            set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier))
                 
                 elif sorted(as_group.availability_zones) != sorted(healthy_zones):
                     as_group = reload_as_group(as_group)
@@ -57,20 +55,18 @@ def main(args):
                         modify_as_group_AZs(as_group, healthy_zones)
                     
                     else:
-                        print_verbose("Bid will need to be modified as we can't meet AZ minimum")
+                        print_verbose("Bid will need to be modified as we can't meet AZ minimum of %s" % str(get_min_AZs(as_group)))
                         best_bid = find_best_bid_price(as_group)
-                        print_verbose("best bid possible given AZ minimum is %s" % str(best_bid))
+                        print_verbose("Best possible bid given AZ minimum is %s" % str(best_bid))
                         if best_bid:
                             modify_price(as_group, best_bid)
                         else:
                             print_verbose("Moving to ondemand.")
-                            modify_price(as_group, None, minutes_multiplier)
-                            as_group = reload_as_group(as_group)
-                            set_tag_dictionary_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier))
-                            as_group = reload_as_group(as_group)
+                            modify_price(as_group, None, minutes_multiplier, args.demand_expiration)
+                            set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier))
                             modify_as_group_AZs(as_group, get_usable_zones(as_group))
                 else:
-                    print_verbose('No actions to take on this AZ.')
+                    print_verbose('No actions to take on this ASG.')
             print_verbose('Done with pass on %s' % region)
 
 
@@ -88,10 +84,6 @@ def get_min_AZs(as_group):
     return int(get_tag_dict_value(as_group, 'SSR_config')['min_AZs'])
 
 
-def reload_as_group(as_group):
-    return as_group.connection.get_all_groups([as_group.name])[0]
-
-
 def get_rounded_price(price):
     return ceil(price * 100) / 100.0
 
@@ -99,9 +91,11 @@ def get_rounded_price(price):
 def find_best_bid_price(as_group):
     try:
         prices = get_current_spot_prices(as_group)
-        print(prices)
-        best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price
+        print_verbose(prices) #XXX still working through some issues here
+        best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price #XXX this approach is potentially flawed
+        print_verbose('best_bid=', best_bid)
         max_bid = get_max_bid(as_group)
+        print_verbose('best_bid=', best_bid)
         if get_rounded_price(best_bid) >= get_rounded_price(max_bid):
             return False # since ondemand instances are faster to spin up and more available, if demand and max_bid are equal, ondemand wins out.
         else:
@@ -124,6 +118,19 @@ def get_max_bid(as_group):
         sys.exit(1)
 
 
+def update_tags(as_conn, health_tags):
+    try:
+        as_conn.create_or_update_tags(health_tags)
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            update_tags(as_conn, health_tags)
+        else:
+            handle_exception(e)
+            sys.exit(1)
+
+
 def get_healthy_zones(as_group):
     AZ_status = get_tag_dict_value(as_group, 'AZ_status')
     zone_prefix = as_group.availability_zones[0][:-1]
@@ -136,19 +143,13 @@ def get_usable_zones(as_group):
     return [ zone_prefix + t for t in AZ_status if AZ_status[t]['use'] ]
 
 
-def set_tag_dictionary_value(as_group, tag_key, val_key, value):
-    tag_val = get_tag_dict_value(as_group, tag_key)
-    tag_val[val_key] = value
-    print_verbose("Changing dict_value", as_group, tag_key, tag_val)
-    create_tag(as_group, tag_key, tag_val)
-
-
-def modify_price(as_group, new_bid, minutes_multiplier=None):
+def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=None):
     try:
+        as_group = reload_as_group(as_group)
         as_conn = boto.ec2.autoscale.connect_to_region(as_group.connection.region.name)
         old_launch_config = get_launch_config(as_group)
-        new_launch_config_name = old_launch_config.name[:-13] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
-
+        new_launch_config_name = old_launch_config.name[:-12] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(9))
+        
         launch_config = LaunchConfiguration(
             image_id = old_launch_config.image_id,
             key_name = old_launch_config.key_name,
@@ -178,11 +179,9 @@ def modify_price(as_group, new_bid, minutes_multiplier=None):
             if not dry_run:
                 print_verbose("Applying new LC to ASG %s" % as_group.name)
                 as_group.update()
-                as_group = reload_as_group(as_group)
-                set_tag_dictionary_value(as_group, 'SSR_config', 'LC_name', new_launch_config_name[-155:])
+                set_tag_dict_value(as_group, 'SSR_config', 'LC_name', launch_config.name[-155:])
                 if not new_bid:
-                    set_tag_dictionary_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier ))
-                    as_group = reload_as_group(as_group)
+                    set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (demand_expiration * minutes_multiplier ))
                     modify_as_group_AZs(as_group, get_usable_zones(as_group))
 
         print_verbose("Autoscaling group launch configuration update complete.")
@@ -211,13 +210,14 @@ def match_AZs_on_elbs(as_group):
 
     except Exception as e:
         handle_exception(e)
-        return 1
+        sys.exit(1)
 
 
 def modify_as_group_AZs(as_group, healthy_zones):
     try:
+        as_group = reload_as_group(as_group)
         as_group.availability_zones = healthy_zones
-        print_verbose("Updating %s with AZs %s" % (as_group.name, healthy_zones))
+        print_verbose("Updating with AZs %s" % healthy_zones)
         if not dry_run:
             as_group.update()
             if as_group.load_balancers:

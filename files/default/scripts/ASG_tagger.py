@@ -36,8 +36,9 @@ def main(args):
             all_groups = list(set(spot_LC_groups + previously_SSR_managed_groups))
             for as_group in all_groups:
                 print_verbose("Evaluating %s" % as_group.name)
+
                 # this latter condition can happen when tag value (a dict) can't be interpreted by ast.literal_eval()
-                if not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
+                if args.reset_tags  or not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
                     print_verbose('Tags not found. Applying now.')
                     init_SSR_config_tag(as_group, args.min_healthy_AZs)
                     init_AZ_status_tag(as_group)
@@ -58,10 +59,6 @@ def main(args):
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                         init_AZ_status_tag(as_group)
 
-                elif args.reset_tags:
-                    init_SSR_config_tag(as_group, args.min_healthy_AZs)
-                    init_AZ_status_tag(as_group)
-                
                 else:
                     raise Exception("SSR_enabled tag found for %s but isn't a valid value." % (as_group.name,))
 
