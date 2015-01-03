@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# health_enforcer.py
-#XXX implement dry_run and verbose stuffs
 #XXX why are tags coming out unicode from this script?
 
 import argparse
@@ -118,19 +116,6 @@ def get_max_bid(as_group):
         sys.exit(1)
 
 
-def update_tags(as_conn, health_tags):
-    try:
-        as_conn.create_or_update_tags(health_tags)
-    except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            update_tags(as_conn, health_tags)
-        else:
-            handle_exception(e)
-            sys.exit(1)
-
-
 def get_healthy_zones(as_group):
     AZ_status = get_tag_dict_value(as_group, 'AZ_status')
     zone_prefix = as_group.availability_zones[0][:-1]
@@ -187,15 +172,9 @@ def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=N
         print_verbose("Autoscaling group launch configuration update complete.")
         old_launch_config.delete()
 
-    except EC2ResponseError as e:
-        handle_exception(e)
-
-    except BotoServerError as e:
-        handle_exception(e)
-
     except Exception as e:
         handle_exception(e)
-        return 1
+        sys.exit(1)   
 
 
 def match_AZs_on_elbs(as_group):
@@ -230,7 +209,7 @@ def modify_as_group_AZs(as_group, healthy_zones):
         modify_as_group_AZs(as_group, healthy_zones)   
     except Exception as e:
         handle_exception(e)
-        return 1
+        sys.exit(1)
 
 
 if __name__ == "__main__":

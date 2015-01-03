@@ -67,6 +67,19 @@ def get_image(as_group):
         sys.exit(1)
 
 
+def update_tags(as_conn, health_tags):
+    try:
+        as_conn.create_or_update_tags(health_tags)
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            update_tags(as_conn, health_tags)
+        else:
+            handle_exception(e)
+            sys.exit(1)
+
+
 def create_tag(as_group, key, value):
     try:
         tag = Tag(key=key,

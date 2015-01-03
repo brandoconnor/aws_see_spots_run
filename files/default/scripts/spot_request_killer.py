@@ -55,7 +55,7 @@ def main(args):
 
         except Exception as e:
             handle_exception(e)
-            return 1
+            sys.exit(1)
 
     print_verbose("All regions complete")
 
