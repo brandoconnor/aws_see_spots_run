@@ -138,7 +138,7 @@ def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=N
         as_conn = boto.ec2.autoscale.connect_to_region(as_group.connection.region.name)
         old_launch_config = get_launch_config(as_group)
         new_launch_config_name = old_launch_config.name[:-12] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(9))
-        
+
         launch_config = LaunchConfiguration(
             image_id = old_launch_config.image_id,
             key_name = old_launch_config.key_name,
@@ -207,7 +207,7 @@ def modify_as_group_AZs(as_group, healthy_zones):
         if e.error_code == 'Throttling':
             print_verbose('Pausing for AWS throttling...')
             sleep(1)
-        modify_as_group_AZs(as_group, healthy_zones)   
+        modify_as_group_AZs(as_group, healthy_zones)
     except Exception as e:
         handle_exception(e)
         sys.exit(1)

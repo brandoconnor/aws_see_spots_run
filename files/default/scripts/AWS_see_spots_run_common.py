@@ -183,6 +183,17 @@ def get_current_spot_prices(as_group):
         sys.exit(1)
 
 
+def get_potential_AZs(as_group):
+    try:
+        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+        all_zones = ec2_conn.get_all_zones()
+        prices = get_current_spot_prices(as_group)
+        return [ z.name for z in all_zones if z.name in list(set([ p.availability_zone for p in prices ])) and z.state == 'available' ]
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
 def main():
     pass
 

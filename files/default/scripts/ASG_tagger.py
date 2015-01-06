@@ -122,17 +122,6 @@ def verify_tag_dict_keys(as_group, tag_name, key_list):
         return True
 
 
-def get_potential_AZs(as_group):
-    try:
-        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-        all_zones = ec2_conn.get_all_zones()
-        prices = get_current_spot_prices(as_group)
-        return [ z.name for z in all_zones if z.name in list(set([ p.availability_zone for p in prices ])) and z.state == 'available' ]
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
