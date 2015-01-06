@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#XXX why are tags coming out unicode from this script?
 
 import argparse
 import boto
@@ -21,12 +20,12 @@ def main(args):
             print_verbose('Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
             as_groups = get_SSR_groups(as_conn)
-            minutes_multiplier = 5 #XXX should be number of seconds per minute
+            minutes_multiplier = 60
             for as_group in as_groups:
                 as_group = reload_as_group(as_group)
                 print_verbose("Checking %s" % as_group.name)
                 demand_expiration = get_tag_dict_value(as_group, 'SSR_config')['demand_expiration']
-                healthy_zones = get_healthy_zones(as_group)
+                healthy_zones = get_healthy_zones(as_group, args.min_health_threshold )
                 if demand_expiration != False:
                     if demand_expiration < int(time.time()):
                         if len(healthy_zones) >= get_min_AZs(as_group):
@@ -90,6 +89,8 @@ def find_best_bid_price(as_group):
     try:
         prices = get_current_spot_prices(as_group)
         print_verbose(prices) #XXX still working through some issues here
+        if len(prices) != len(get_usable_zones(as_group)):
+            raise Exception ("Different number of AZs found than expected. Prices = %s\nAZs = %s" % (str(prices), str(get_usable_zones(as_group))))
         best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price #XXX this approach is potentially flawed
         print_verbose('best_bid=', best_bid)
         max_bid = get_max_bid(as_group)
@@ -116,10 +117,10 @@ def get_max_bid(as_group):
         sys.exit(1)
 
 
-def get_healthy_zones(as_group):
+def get_healthy_zones(as_group, min_health_threshold):
     AZ_status = get_tag_dict_value(as_group, 'AZ_status')
     zone_prefix = as_group.availability_zones[0][:-1]
-    return [ zone_prefix + t for t in AZ_status if AZ_status[t]['use'] and AZ_status[t]['health'].count(0) >= 2 ]
+    return [ zone_prefix + t for t in AZ_status if AZ_status[t]['use'] and AZ_status[t]['health'].count(0) >= min_health_threshold ]
 
 
 def get_usable_zones(as_group):
@@ -212,10 +213,76 @@ def modify_as_group_AZs(as_group, healthy_zones):
         sys.exit(1)
 
 
+def get_ondemand_price(launch_config):
+    try:
+        region = launch_config.connection.region.name
+        ec2_conn = boto.ec2.connect_to_region(region)
+        image = ec2_conn.get_image(launch_config.image_id)
+
+        url = get_price_url(launch_config)
+        resp = requests.get(url)
+        json_str = str(resp.text.split('callback(')[1])[:-2] # need to remove comments and callback syntax before parsing the broken json
+        prices_dict = demjson.decode(json_str)['config']['regions']
+
+        regional_prices_json = [ r for r in prices_dict if r['region'] == region ][0]['instanceTypes']
+        instance_class_prices_json = [ r for r in regional_prices_json if launch_config.instance_type in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
+        price = float([ e for e in instance_class_prices_json if e['size'] == launch_config.instance_type ][0]['valueColumns'][0]['prices']['USD'])
+        print_verbose("On demand price for %s in %s is %s" % (launch_config.instance_type, region, price))
+        return price
+
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
+def get_price_url(launch_config):
+    # nabbed URL list from https://github.com/iconara/ec2pricing/blob/master/public/app/ec2pricing/config.js
+    base_url = 'http://a0.awsstatic.com/pricing/1/ec2/'
+
+    previous_gen_types = ['m1', 'm2', 'c2', 'cc2', 'cg1', 'cr1', 'hi1']
+    if launch_config.instance_type.split('.')[0] in previous_gen_types:
+        base_url += 'previous-generation/'
+
+    ec2_conn = boto.ec2.connect_to_region(launch_config.connection.region.name)
+    image = ec2_conn.get_image(launch_config.image_id)
+
+    if image.platform == 'windows':
+        base_url += 'mswin'
+    elif 'SUSE Linux Enterprise Server' in image.description:
+        base_url += 'sles'
+    else:
+        base_url += 'linux'
+    url = base_url + '-od.min.js'
+    return url
+
+
+def reload_as_group(as_group):
+    try:
+        return as_group.connection.get_all_groups([as_group.name])[0]
+
+    except BotoServerError as e:
+        if e.error_code == 'Throttling':
+            print_verbose('Pausing for AWS throttling...')
+            sleep(1)
+            return reload_as_group(as_group)
+
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
+def set_tag_dict_value(as_group, tag_key, val_key, value):
+    as_group = reload_as_group(as_group)
+    tag_val = get_tag_dict_value(as_group, tag_key)
+    tag_val[val_key] = value
+    create_tag(as_group, tag_key, tag_val)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
+    parser.add_argument('-m', '--min_health_threshold', default=3, type=int, choices=[1,2,3], help='Minimum number of good (0) checks against an AZ before its considered healthy. Default=3')
     parser.add_argument('-x', '--demand_expiration', default=50, type=int, help='Length of time in minutes we should let an ASG operate with on demand before checking for spot availability. Default=50')
     sys.exit(main(parser.parse_args()))

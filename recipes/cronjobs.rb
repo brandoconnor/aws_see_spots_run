@@ -37,26 +37,26 @@ remote_directory "scripts" do
 end
 
 cron "ASG_tagger" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
+  command "#{cron_wrapper} -v -d -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"
 end
 
 cron "spot_request_killer" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f srk -c 'python27 #{node['AWS_see_spots_run']['exec_path']}spot_request_killer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']} -v'"
+  command "#{cron_wrapper} -v -d -f spot_request_killer -c 'python27 #{node['AWS_see_spots_run']['exec_path']}spot_request_killer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']} -v'"
   minute "*/#{node['AWS_see_spots_run']['spot_request_killer']['interval']}"
 end
 
 cron "spot_health_enforcer" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f health_enf -c 'python27 #{node['AWS_see_spots_run']['exec_path']}health_enforcer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -v'"
+  command "#{cron_wrapper} -v -d -f spot_health_enforcer -c 'python27 #{node['AWS_see_spots_run']['exec_path']}health_enforcer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['health_enforcer']['min_health_threshold']} -v'"
   minute "*/#{node['AWS_see_spots_run']['health_enforcer']['interval']}"
 end
 
 cron "spot_price_monitor" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f price_mon -c 'python27 #{node['AWS_see_spots_run']['exec_path']}price_monitor.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
+  command "#{cron_wrapper} -v -d -f spot_price_monitor -c 'python27 #{node['AWS_see_spots_run']['exec_path']}price_monitor.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
   minute "*/#{node['AWS_see_spots_run']['price_monitor']['interval']}"
 end
 
 cron "remove_old_launch_configs" do
-  command "#{cron_wrapper} -v -e dbl-misc@dreambox.com -f del_LCs -c 'python27 #{node['AWS_see_spots_run']['exec_path']}remove_old_launch_configs.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
+  command "#{cron_wrapper} -v -d -f remove_old_launch_configs -c 'python27 #{node['AWS_see_spots_run']['exec_path']}remove_old_launch_configs.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
   hour "0"
 end

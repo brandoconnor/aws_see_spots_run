@@ -100,44 +100,11 @@ def create_tag(as_group, key, value):
             sys.exit(1)
 
 
-def reload_as_group(as_group):
-    try:
-        return as_group.connection.get_all_groups([as_group.name])[0]
-
-    except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return reload_as_group(as_group)
-
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
-
-
-def set_tag_dict_value(as_group, tag_key, val_key, value):
-    as_group = reload_as_group(as_group)
-    tag_val = get_tag_dict_value(as_group, tag_key)
-    tag_val[val_key] = value
-    create_tag(as_group, tag_key, tag_val)
-
-
 def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
     except:
         return False # this value needs to be tested each time
-
-
-def get_potential_AZs(as_group):
-    try:
-        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-        all_zones = ec2_conn.get_all_zones()
-        prices = get_current_spot_prices(as_group)
-        return [ z.name for z in all_zones if z.name in list(set([ p.availability_zone for p in prices ])) and z.state == 'available' ]
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
 
 
 def get_bid(as_group):
@@ -155,10 +122,6 @@ def get_bid(as_group):
         else:
             handle_exception(e)
             sys.exit(1)
-
-
-def get_AZ_health_list(as_group, AZ):
-    return get_tag_dict_value(as_group, 'AZ_status')[AZ]['health']
 
 
 def set_new_AZ_status_tag(as_group, health_dict):
@@ -191,28 +154,6 @@ def get_SSR_groups(as_conn):
             sys.exit(1)
 
 
-def get_ondemand_price(launch_config):
-    try:
-        region = launch_config.connection.region.name
-        ec2_conn = boto.ec2.connect_to_region(region)
-        image = ec2_conn.get_image(launch_config.image_id)
-
-        url = get_price_url(launch_config)
-        resp = requests.get(url)
-        json_str = str(resp.text.split('callback(')[1])[:-2] # need to remove comments and callback syntax before parsing the broken json
-        prices_dict = demjson.decode(json_str)['config']['regions']
-
-        regional_prices_json = [ r for r in prices_dict if r['region'] == region ][0]['instanceTypes']
-        instance_class_prices_json = [ r for r in regional_prices_json if launch_config.instance_type in [ e['size'] for e in r['sizes'] ] ][0]['sizes']
-        price = float([ e for e in instance_class_prices_json if e['size'] == launch_config.instance_type ][0]['valueColumns'][0]['prices']['USD'])
-        print_verbose("On demand price for %s in %s is %s" % (launch_config.instance_type, region, price))
-        return price
-
-    except Exception as e:
-        handle_exception(e)
-        sys.exit(1)
-
-
 def get_current_spot_prices(as_group):
     try:
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
@@ -240,27 +181,6 @@ def get_current_spot_prices(as_group):
     except Exception as e:
         handle_exception(e)
         sys.exit(1)
-
-
-def get_price_url(launch_config):
-    # nabbed URL list from https://github.com/iconara/ec2pricing/blob/master/public/app/ec2pricing/config.js
-    base_url = 'http://a0.awsstatic.com/pricing/1/ec2/'
-
-    previous_gen_types = ['m1', 'm2', 'c2', 'cc2', 'cg1', 'cr1', 'hi1']
-    if launch_config.instance_type.split('.')[0] in previous_gen_types:
-        base_url += 'previous-generation/'
-
-    ec2_conn = boto.ec2.connect_to_region(launch_config.connection.region.name)
-    image = ec2_conn.get_image(launch_config.image_id)
-
-    if image.platform == 'windows':
-        base_url += 'mswin'
-    elif 'SUSE Linux Enterprise Server' in image.description:
-        base_url += 'sles'
-    else:
-        base_url += 'linux'
-    url = base_url + '-od.min.js'
-    return url
 
 
 def main():

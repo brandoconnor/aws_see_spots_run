@@ -45,7 +45,6 @@ def main(args):
     print_verbose("All regions complete")
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")

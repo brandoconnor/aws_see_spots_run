@@ -30,9 +30,10 @@ def main(args):
 
             all_groups = as_conn.get_all_groups()
             spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
+            # these need to be pulled from the same all_groups list or duplicate objects will be seen as distinct.
             spot_LC_groups = [ g for g in all_groups if g.launch_config_name in [ s.name for s in spot_LCs ] ]
             previously_SSR_managed_groups = [ g for g in all_groups if get_tag_dict_value(g, 'SSR_config') and  get_tag_dict_value(g, 'SSR_config')['enabled'] == True ]
-            
+
             all_groups = list(set(spot_LC_groups + previously_SSR_managed_groups))
             for as_group in all_groups:
                 print_verbose("Evaluating %s" % as_group.name)
@@ -48,13 +49,14 @@ def main(args):
 
                 elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
                     print_verbose('SSR management enabled. Verifying all config values in place.')
-                    config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration',]
-                    
-                    # Checking 2 things here:
-                    ## 1. all config keys exist: they could change (keys added) and in some cases during dev, it's helpful to create them afresh
-                    ## 2. if launch config name changed for the group this indicates an update of the LC via cloudformation and the SSR_config tag should be reset
+                    config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration']
+
                     if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys) or not get_tag_dict_value(as_group, 'SSR_config')['LC_name'] == as_group.launch_config_name[-155:]:
-                        init_SSR_config_tag(as_group, args.min_healthy_AZs)
+                        if not get_launch_config(as_group).spot_price: # this would indicate a change to the LC outside of SSR scope. In that case, we need to disable SSR.
+                            enabled = False
+                        else:
+                            enabled = True
+                        init_SSR_config_tag(as_group, args.min_healthy_AZs, enabled)
                     zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                         init_AZ_status_tag(as_group)
@@ -77,11 +79,11 @@ def main(args):
     print_verbose("All regions complete")
 
 
-def init_SSR_config_tag(as_group, min_healthy_AZs):
+def init_SSR_config_tag(as_group, min_healthy_AZs, enabled=True):
     try:
         config = get_launch_config(as_group)
         config_dict = {
-                'enabled': True,
+                'enabled': enabled,
                 'original_bid': get_bid(as_group), #XXX will this work when LC_name changes due to CFN change?
                 'min_AZs': min_healthy_AZs,
                 'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
@@ -120,11 +122,22 @@ def verify_tag_dict_keys(as_group, tag_name, key_list):
         return True
 
 
+def get_potential_AZs(as_group):
+    try:
+        ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
+        all_zones = ec2_conn.get_all_zones()
+        prices = get_current_spot_prices(as_group)
+        return [ z.name for z in all_zones if z.name in list(set([ p.availability_zone for p in prices ])) and z.state == 'available' ]
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dry_run', action='store_true', default=False, help="Verbose minus action. Default=False")
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Print output. Default=False")
     parser.add_argument('-e', '--excluded_regions', default=['cn-north-1', 'us-gov-west-1'], nargs='*', type=str, help='Space separated AWS regions to exclude. Default= cn-north-1 us-gov-west-1')
-    parser.add_argument('-m', '--min_healthy_AZs', default=3, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
+    parser.add_argument('-m', '--min_healthy_AZs', default=1, help="Minimum default number of AZs before alternative launch approaches are tried. Default=3")
     parser.add_argument('-r', '--reset_tags', action='store_true', default=False, help="Reset tags for all relevant as_groups. Default=False")
     sys.exit(main(parser.parse_args()))
