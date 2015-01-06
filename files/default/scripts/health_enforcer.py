@@ -186,8 +186,9 @@ def maximize_elb_AZs(elb_conn, as_group):
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)[0]
             if not sorted(elb.availability_zones) == sorted(get_potential_AZs(as_group)):
-                print_verbose("AZs for ELB don't include all potential AZs. Adding all of them now.")
+                print_verbose("AZs for ELB don't include all potential AZs. Removing unusable zones and adding the rest now.")
                 if not dry_run:
+                    elb.disable_zones(list(set(elb.availability_zones) - set(get_potential_AZs(as_group))))
                     elb.enable_zones(get_potential_AZs(as_group))
 
     except Exception as e:

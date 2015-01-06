@@ -40,7 +40,7 @@ def main(args):
 
                 # this latter condition can happen when tag value (a dict) can't be interpreted by ast.literal_eval()
                 if args.reset_tags  or not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
-                    print_verbose('Tags not found. Applying now.')
+                    print_verbose('Tags not found or reset tags option flagged. Adding all tags anew now.')
                     init_SSR_config_tag(as_group, args.min_healthy_AZs)
                     init_AZ_status_tag(as_group)
 
