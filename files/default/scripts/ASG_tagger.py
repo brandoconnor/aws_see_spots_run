@@ -52,11 +52,12 @@ def main(args):
                     config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration']
 
                     if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys) or not get_tag_dict_value(as_group, 'SSR_config')['LC_name'] == as_group.launch_config_name[-155:]:
-                        if not get_launch_config(as_group).spot_price: # this would indicate a change to the LC outside of SSR scope. In that case, we need to disable SSR.
-                            enabled = False
+                        if not get_launch_config(as_group).spot_price: # this would indicate a change to the LC outside of SSR scope. In that case, we need to disable SSR via tag deletion.
+                            del_SSR_tags(as_group)
+                            continue
                         else:
-                            enabled = True
-                        init_SSR_config_tag(as_group, args.min_healthy_AZs, enabled)
+                            init_SSR_config_tag(as_group, args.min_healthy_AZs)
+
                     zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                         init_AZ_status_tag(as_group)
@@ -79,11 +80,15 @@ def main(args):
     print_verbose("All regions complete")
 
 
-def init_SSR_config_tag(as_group, min_healthy_AZs, enabled=True):
+def del_SSR_tags(as_group):
+    return as_group.connection.delete_tags([ t for t in as_group.tags if t.key == 'AZ_status' or t.key == 'SSR_config' ])
+
+
+def init_SSR_config_tag(as_group, min_healthy_AZs):
     try:
         config = get_launch_config(as_group)
         config_dict = {
-                'enabled': enabled,
+                'enabled': True,
                 'original_bid': get_bid(as_group), #XXX will this work when LC_name changes due to CFN change?
                 'min_AZs': min_healthy_AZs,
                 'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
