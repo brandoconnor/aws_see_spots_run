@@ -20,10 +20,13 @@ def main(args):
             print_verbose('Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
             as_groups = get_SSR_groups(as_conn)
+            elb_conn = boto.ec2.elb.connect_to_region(as_conn.region.name)
             minutes_multiplier = 60
             for as_group in as_groups:
                 as_group = reload_as_group(as_group)
                 print_verbose("Checking %s" % as_group.name)
+                if as_group.load_balancers:
+                    maximize_elb_AZs(elb_conn, as_group)
                 demand_expiration = get_tag_dict_value(as_group, 'SSR_config')['demand_expiration']
                 healthy_zones = get_healthy_zones(as_group, args.min_health_threshold )
                 if demand_expiration != False:
@@ -43,14 +46,14 @@ def main(args):
                         else:
                             print_verbose('Extending the life of demand instances as we cant fulfill with spots still')
                             set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier))
-                
+
                 elif sorted(as_group.availability_zones) != sorted(healthy_zones):
                     as_group = reload_as_group(as_group)
                     print_verbose("Healthy zones and zones in use dont match")
                     if len(healthy_zones) >= get_min_AZs(as_group):
                         print_verbose('Modifying zones accordingly.')
                         modify_as_group_AZs(as_group, healthy_zones)
-                    
+
                     else:
                         print_verbose("Bid will need to be modified as we can't meet AZ minimum of %s" % str(get_min_AZs(as_group)))
                         best_bid = find_best_bid_price(as_group)
@@ -175,18 +178,17 @@ def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=N
 
     except Exception as e:
         handle_exception(e)
-        sys.exit(1)   
+        sys.exit(1)
 
 
-def match_AZs_on_elbs(as_group):
+def maximize_elb_AZs(elb_conn, as_group):
     try:
-        elb_conn = boto.ec2.elb.connect_to_region(as_group.connection.region.name)
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)[0]
-            if not sorted(elb.availability_zones) == sorted(as_group.availability_zones):
-                print_verbose("AZs for ELB don't match that of the as_group. Aligning them now.")
+            if not sorted(elb.availability_zones) == sorted(get_potential_AZs(as_group)):
+                print_verbose("AZs for ELB don't include all potential AZs. Adding all of them now.")
                 if not dry_run:
-                    elb.enable_zones(as_group.availability_zones)
+                    elb.enable_zones(get_potential_AZs(as_group))
 
     except Exception as e:
         handle_exception(e)
@@ -200,8 +202,6 @@ def modify_as_group_AZs(as_group, healthy_zones):
         print_verbose("Updating with AZs %s" % healthy_zones)
         if not dry_run:
             as_group.update()
-            if as_group.load_balancers:
-                match_AZs_on_elbs(as_group)
 
     except BotoServerError as e:
         if e.error_code == 'Throttling':
