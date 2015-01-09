@@ -2,14 +2,12 @@
 
 ## Description
 
-A cookbook to manage AWS spot EC2 instances within autoscaling groups via Chef, cronjobs, and magic.
-
-- http://aws.amazon.com/ec2/purchasing-options/spot-instances/
+A cookbook to manage AWS spot EC2 instances within autoscaling groups via Chef, cronjobs, AWS APIs, and magic.
+See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details.
 
 ## Platforms
 
 * Tested on Amazon Linux with Chef 11.12.8
-
 
 Feel free to ask questions via email.
 
@@ -18,7 +16,7 @@ Feel free to ask questions via email.
 * Source hosted at [GitHub][repo]
 * Report issues/questions/feature requests on [GitHub Issues][issues]
 
-Pull requests are very welcome! tested.
+Pull requests are welcome!
 Ideally create a topic branch for every separate change you make. For
 example:
 
