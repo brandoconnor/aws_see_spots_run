@@ -11,7 +11,7 @@ import ast
 import boto
 import sys
 import time
-from AWS_see_spots_run_common import *
+from AWS_SSR_common import *
 from boto import ec2
 from boto.ec2 import autoscale
 from boto.ec2.autoscale import Tag

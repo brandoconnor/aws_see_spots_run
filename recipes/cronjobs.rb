@@ -36,6 +36,8 @@ remote_directory "scripts" do
   files_backup 0
 end
 
+cron_wrapper='AWS_ACCESS_KEY_ID=AKIAITY4Z7EQ45XWJNPQ AWS_SECRET_ACCESS_KEY=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 /usr/local/bin/cronwrap.py -E west -l /var/log/dbl_ops.log'
+
 cron "ASG_tagger" do
   command "#{cron_wrapper} -v -d -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"

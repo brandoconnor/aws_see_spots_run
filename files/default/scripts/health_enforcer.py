@@ -4,7 +4,7 @@ import argparse
 import boto
 import sys
 import time
-from AWS_see_spots_run_common import *
+from AWS_SSR_common import *
 from boto import ec2
 from boto.ec2 import autoscale, elb
 from boto.exception import BotoServerError, EC2ResponseError
@@ -185,12 +185,12 @@ def maximize_elb_AZs(elb_conn, as_group):
     try:
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)[0]
-            if not sorted(elb.availability_zones) == sorted(get_potential_AZs(as_group)):
+            if not sorted(elb.availability_zones) == sorted(get_usable_zones(as_group)):
                 print_verbose("AZs for ELB don't include all potential AZs. Removing unusable zones and adding the rest now.")
                 if not dry_run:
-                    if len(list(set(elb.availability_zones) - set(get_potential_AZs(as_group)))) > 0:
-                        elb.disable_zones(list(set(elb.availability_zones) - set(get_potential_AZs(as_group))))
-                    elb.enable_zones(get_potential_AZs(as_group))
+                    if len(list(set(elb.availability_zones) - set(get_usable_zones(as_group)))) > 0:
+                        elb.disable_zones(list(set(elb.availability_zones) - set(get_usable_zones(as_group))))
+                    elb.enable_zones(get_usable_zones(as_group))
 
     except Exception as e:
         handle_exception(e)

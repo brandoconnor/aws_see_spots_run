@@ -7,7 +7,7 @@ import argparse
 import boto.ec2
 import json
 import sys
-from AWS_see_spots_run_common import *
+from AWS_SSR_common import *
 from boto.exception import EC2ResponseError
 from boto.ec2 import autoscale
 from datetime import datetime, timedelta

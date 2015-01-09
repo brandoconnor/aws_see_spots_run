@@ -3,7 +3,7 @@
 import argparse
 import boto
 import sys
-from AWS_see_spots_run_common import *
+from AWS_SSR_common import *
 from boto.ec2 import autoscale
 from boto.exception import BotoServerError, EC2ResponseError
 from time import sleep
