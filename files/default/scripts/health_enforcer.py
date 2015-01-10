@@ -41,7 +41,7 @@ def main(args):
                             # kill all demand instances that were created
                             ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
                             all_ec2_instances = ec2_conn.get_all_instances()
-                            print_verbose("Looking at %s instances for potential termination", len(as_group.instances))
+                            print_verbose("Looking at %s instances for potential termination" % str(len(as_group.instances)))
                             for instance in as_group.instances:
                                 if not [ i for i in all_ec2_instances if i.instances[0].id == instance.instance_id ][0].instances[0].spot_instance_request_id and not dry_run:
                                     as_conn.terminate_instance(instance.instance_id, decrement_capacity=False)
@@ -139,7 +139,7 @@ def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=N
         as_group = reload_as_group(as_group)
         as_conn = boto.ec2.autoscale.connect_to_region(as_group.connection.region.name)
         old_launch_config = get_launch_config(as_group)
-        new_launch_config_name = old_launch_config.name[:-12] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(9))
+        new_launch_config_name = old_launch_config.name[:-13] + 'SSR' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
         launch_config = LaunchConfiguration(
             image_id = old_launch_config.image_id,

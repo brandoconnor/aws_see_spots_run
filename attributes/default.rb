@@ -7,7 +7,7 @@ default['AWS_see_spots_run']['exec_path'] = '/usr/local/bin/'
 default['AWS_see_spots_run']['excluded_regions'] = 'cn-north-1 us-gov-west-1'
 
 default['AWS_see_spots_run']['spot_request_killer']['interval'] = 5
-default['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale'] = 8
+default['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale'] = 9
 
 default['AWS_see_spots_run']['price_monitor']['interval'] = 15
 
