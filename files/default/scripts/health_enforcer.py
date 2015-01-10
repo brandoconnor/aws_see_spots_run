@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+'''
+Evaluates health tags and makes decisions to remove AZs, alter the bid, move to on demand, ect.
+'''
 import argparse
 import boto
 import sys
@@ -91,10 +93,10 @@ def get_rounded_price(price):
 def find_best_bid_price(as_group):
     try:
         prices = get_current_spot_prices(as_group)
-        print_verbose(prices) #XXX still working through some issues here
+        print_verbose(prices) #XXX potentially still working through some issues here
         if len(prices) != len(get_usable_zones(as_group)):
             raise Exception ("Different number of AZs found than expected. Prices = %s\nAZs = %s" % (str(prices), str(get_usable_zones(as_group))))
-        best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price #XXX this approach is potentially flawed
+        best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price
         print_verbose('best_bid=', best_bid)
         max_bid = get_max_bid(as_group)
         print_verbose('best_bid=', best_bid)

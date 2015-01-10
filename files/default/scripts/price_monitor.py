@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-
+'''
+Updates health tags for every SSR managed ASG, comparing the LC's bid price to each AZ
+for that LC's instance type.
+'''
 import argparse
 import ast
 import boto

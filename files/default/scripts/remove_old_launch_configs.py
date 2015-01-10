@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+'''
+Cleans up abandoned launch configurations, which SSR may or may not be responsible for.
+'''
 import argparse
 import boto
 import sys

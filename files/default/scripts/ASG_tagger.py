@@ -3,7 +3,7 @@
 Tagger runs on a periodic basis to tag autoscaling groups, providing the persistence
 needed for spot management.
 
-All values aside from AZ_status should be a set just once. If a user wants to
+All values (aside from AZ_status) should be a set just once. If a user wants to
 override a tag value, that will be honored and not overridden by SSR.
 '''
 import argparse
@@ -89,10 +89,10 @@ def init_SSR_config_tag(as_group, min_healthy_AZs):
         config = get_launch_config(as_group)
         config_dict = {
                 'enabled': True,
-                'original_bid': get_bid(as_group), #XXX will this work when LC_name changes due to CFN change?
+                'original_bid': get_bid(as_group),
                 'min_AZs': min_healthy_AZs,
                 'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
-                "demand_expiration": False, #XXX this cannot change if LCs change due to shift to ondemand. Possibly create a function. Maybe set to True if ondemand not via SSR
+                "demand_expiration": False,
                 }
         create_tag(as_group, 'SSR_config', config_dict)
     except Exception as e:

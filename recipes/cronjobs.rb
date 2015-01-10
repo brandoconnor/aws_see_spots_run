@@ -2,7 +2,7 @@
 # Cookbook Name:: AWS_see_spots_run
 # Recipe:: cronjobs
 #
-# Copyright 2014, DreamBox Learning, Inc.
+# Copyright 2015, DreamBox Learning, Inc.
 #
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,8 +36,10 @@ remote_directory "scripts" do
   files_backup 0
 end
 
+#XXX remove this IAM user from AWS before going public. Ideally this key shouldn't show in repo history at all.
 cron_wrapper='AWS_ACCESS_KEY_ID=AKIAITY4Z7EQ45XWJNPQ AWS_SECRET_ACCESS_KEY=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 /usr/local/bin/cronwrap.py -E west -l /var/log/dbl_ops.log'
 
+#XXX kill cronwrappy bits from cookbook
 cron "ASG_tagger" do
   command "#{cron_wrapper} -v -d -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"
