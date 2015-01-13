@@ -4,6 +4,7 @@ Cleans up abandoned launch configurations, which SSR may or may not be responsib
 '''
 import argparse
 import boto
+import os
 import sys
 from AWS_SSR_common import *
 from boto.ec2 import autoscale
@@ -16,19 +17,19 @@ def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
     for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
-            print_verbose('Starting pass on %s' % region)
+            print_verbose(os.path.basename(__file__), 'info', 'Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
             all_launch_configs = as_conn.get_all_launch_configurations()
             as_groups = as_conn.get_all_groups()
 
             for launch_config in all_launch_configs:
                 if not [ g for g in as_groups if g.launch_config_name == launch_config.name ]:
-                    print_verbose("Launch config %s looks to be abandoned." % launch_config.name)
+                    print_verbose(os.path.basename(__file__), 'info', "Launch config %s looks to be abandoned." % launch_config.name)
                     if not dry_run:
-                        print_verbose("DESTROY!")
+                        print_verbose(os.path.basename(__file__), 'info', "DESTROY!")
                         kill_with_fire(launch_config)
 
-            print_verbose('Done with pass on %s' % region)
+            print_verbose(os.path.basename(__file__), 'info', 'Done with pass on %s' % region)
 
         except Exception as e:
             handle_exception(e)
@@ -39,13 +40,8 @@ def kill_with_fire(launch_config):
     try:
         launch_config.delete()
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return kill_with_fire(launch_config)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return kill_with_fire(launch_config)
 
 
 if __name__ == "__main__":

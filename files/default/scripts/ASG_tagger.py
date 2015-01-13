@@ -9,6 +9,7 @@ override a tag value, that will be honored and not overridden by SSR.
 import argparse
 import ast
 import boto
+import os
 import sys
 import time
 from AWS_SSR_common import *
@@ -24,7 +25,7 @@ def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
     for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
         try:
-            print_verbose('Starting pass on %s' % region)
+            print_verbose(os.path.basename(__file__), 'info', 'Starting pass on %s' % region)
             ec2_conn = boto.ec2.connect_to_region(region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
 
@@ -36,19 +37,19 @@ def main(args):
 
             all_groups = list(set(spot_LC_groups + previously_SSR_managed_groups))
             for as_group in all_groups:
-                print_verbose("Evaluating %s" % as_group.name)
+                print_verbose(os.path.basename(__file__), 'info', "Evaluating %s" % as_group.name)
 
                 # this latter condition can happen when tag value (a dict) can't be interpreted by ast.literal_eval()
                 if args.reset_tags  or not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
-                    print_verbose('Tags not found or reset tags option flagged. Adding all tags anew now.')
+                    print_verbose(os.path.basename(__file__), 'info', 'Tags not found or reset tags option flagged. Adding all tags anew now.')
                     init_SSR_config_tag(as_group, args.min_healthy_AZs)
                     init_AZ_status_tag(as_group)
 
                 elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                    print_verbose('SSR_config DISABLED. Doing nothing.')
+                    print_verbose(os.path.basename(__file__), 'info', 'SSR_config DISABLED. Doing nothing.')
 
                 elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
-                    print_verbose('SSR management enabled. Verifying all config values in place.')
+                    print_verbose(os.path.basename(__file__), 'info', 'SSR management enabled. Verifying all config values in place.')
                     config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration']
 
                     if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys) or not get_tag_dict_value(as_group, 'SSR_config')['LC_name'] == as_group.launch_config_name[-155:]:
@@ -65,7 +66,7 @@ def main(args):
                 else:
                     raise Exception("SSR_enabled tag found for %s but isn't a valid value." % (as_group.name,))
 
-            print_verbose('Done with pass on %s' % region)
+            print_verbose(os.path.basename(__file__), 'info', 'Done with pass on %s' % region)
 
         except EC2ResponseError as e:
             handle_exception(e)
@@ -77,7 +78,7 @@ def main(args):
             handle_exception(e)
             return 1
 
-    print_verbose("All regions complete")
+    print_verbose(os.path.basename(__file__), 'info', "All regions complete")
 
 
 def del_SSR_tags(as_group):
@@ -120,10 +121,10 @@ def init_AZ_status_tag(as_group):
 
 def verify_tag_dict_keys(as_group, tag_name, key_list):
     if not get_tag_dict_value(as_group, tag_name) or not all(key in get_tag_dict_value(as_group, tag_name).keys() for key in key_list):
-        print_verbose("Tag not found or not all expected keys found for %s. Initializing." % tag_name)
+        print_verbose(os.path.basename(__file__), 'warn', "Tag not found or not all expected keys found for %s. Initializing." % tag_name)
         return False
     else:
-        print_verbose("Expected keys found for %s." % tag_name)
+        print_verbose(os.path.basename(__file__), 'info', "Expected keys found for %s." % tag_name)
         return True
 
 

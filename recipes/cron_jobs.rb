@@ -1,6 +1,6 @@
 #
 # Cookbook Name:: AWS_see_spots_run
-# Recipe:: cronjobs
+# Recipe:: cron_jobs
 #
 # Copyright 2015, DreamBox Learning, Inc.
 #
@@ -17,29 +17,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
 
 
-include_recipe  "cronwrappy"
+include_recipe "cronwrappy"
 cron_wrapper = node['cronwrappy']['wrapper_exec']
 
-include_recipe  "python::pip"
+include_recipe "AWS_see_spots_run::packages"
 
-python_packages = ['argparse','boto','requests', 'demjson',]
-python_packages.each do |pkg|
-  python_pip pkg
-end
-
-remote_directory "scripts" do
-  path node['AWS_see_spots_run']['exec_path']
-  files_mode 0755
-  files_backup 0
-end
-
-#XXX remove this IAM user from AWS before going public. Ideally this key shouldn't show in repo history at all.
-cron_wrapper='AWS_ACCESS_KEY_ID=AKIAITY4Z7EQ45XWJNPQ AWS_SECRET_ACCESS_KEY=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 /usr/local/bin/cronwrap.py -E west -l /var/log/dbl_ops.log'
-
-#XXX kill cronwrappy bits from cookbook
+#XXX kill cronwrappy bits from cookbook before going public
 cron "ASG_tagger" do
   command "#{cron_wrapper} -v -d -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"

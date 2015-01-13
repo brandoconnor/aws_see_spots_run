@@ -4,6 +4,8 @@ Common functions used throughout this cookbook's codebase.
 import ast
 import boto
 import demjson
+import logging
+import os
 import random
 import requests
 import string
@@ -27,18 +29,38 @@ def dry_run_necessaries(d, v):
         dry_run = True
     elif v:
         verbose = True
+    if verbose:
+        global logger
+        logger = set_up_logging()
     return verbose, dry_run
 
 
-def print_verbose(*args):
-   if verbose:
+def set_up_logging():
+    logger = logging.getLogger(__name__)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.setLevel(logging.INFO)
+    return logger
+
+
+def print_verbose(filename, log_lvl, *args):
+    if verbose:
+        log_lvl_map = {
+                "info": 20 ,
+                "warn": 30,
+                "err": 40,
+                "crit": 50, }
         for arg in args:
-            print(arg)
+            logger.log(log_lvl_map[log_lvl], filename +  " - " + str(arg))
 
 
 def handle_exception(exception):
+    verbose = True
     exc_traceback = sys.exc_info()[2]
-    print("Exception caught on line %s of %s: %s" %
+    print_verbose(os.path.basename(__file__), 'err', "Exception caught on line %s of %s: %s" %
             (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
 
 
@@ -46,13 +68,8 @@ def get_launch_config(as_group):
     try:
         return as_group.connection.get_all_launch_configurations(names=[as_group.launch_config_name])[0]
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return get_launch_config(as_group)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return get_launch_config(as_group)
 
 
 def get_image(as_group):
@@ -67,17 +84,21 @@ def get_image(as_group):
         sys.exit(1)
 
 
+def throttle_response(e):
+    if e.error_code == 'Throttling':
+        print_verbose(os.path.basename(__file__), 'warn', 'Pausing for AWS throttling...')
+        sleep(1)
+    else:
+        handle_exception(e)
+        sys.exit(1)
+
+
 def update_tags(as_conn, health_tags):
     try:
         as_conn.create_or_update_tags(health_tags)
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            update_tags(as_conn, health_tags)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        update_tags(as_conn, health_tags)
 
 
 def create_tag(as_group, key, value):
@@ -85,19 +106,14 @@ def create_tag(as_group, key, value):
         tag = Tag(key=key,
                     value=value,
                     resource_id=as_group.name)
-        print_verbose("Creating tag for %s." % key)
+        print_verbose(os.path.basename(__file__), 'info', "Creating tag for %s." % key)
         if dry_run:
             return True
         return as_group.connection.create_or_update_tags([tag])
 
     except BotoServerError as e: # this often indicates tag limit has been exceeded
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return create_tag(as_group, key, value)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return create_tag(as_group, key, value)
 
 
 def get_tag_dict_value(as_group, tag_key):
@@ -115,13 +131,8 @@ def get_bid(as_group):
         else:
             return get_tag_dict_value(as_group, 'SSR_config')['original_bid']
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return get_bid(as_group)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return get_bid(as_group)
 
 
 def set_new_AZ_status_tag(as_group, health_dict):
@@ -130,7 +141,7 @@ def set_new_AZ_status_tag(as_group, health_dict):
         for k,v in health_dict.items():
             health_values[k]['health'].pop()
             health_values[k]['health'].insert(0, v)
-        print_verbose(health_values)
+        print_verbose(os.path.basename(__file__), 'info', health_values)
         tag = Tag(key='AZ_status',
                 value=health_values,
                 resource_id=as_group.name)
@@ -142,16 +153,11 @@ def set_new_AZ_status_tag(as_group, health_dict):
 
 def get_SSR_groups(as_conn):
     try:
-        return [ g for g in as_conn.get_all_groups() if 
+        return [ g for g in as_conn.get_all_groups() if
                 [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled'] ] ]
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return get_SSR_groups(as_conn)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return get_SSR_groups(as_conn)
 
 
 def get_current_spot_prices(as_group):

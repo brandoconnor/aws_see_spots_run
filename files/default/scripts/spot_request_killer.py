@@ -6,6 +6,7 @@ allowing the request to shift a more viable AZ through SSR.
 import argparse
 import boto.ec2
 import json
+import os
 import sys
 from AWS_SSR_common import *
 from boto.exception import EC2ResponseError
@@ -29,7 +30,7 @@ def main(args):
             health_tags = []
             for request in pending_requests:
                 if oldest_time > datetime.strptime(request.create_time, "%Y-%m-%dT%H:%M:%S.000Z"):
-                    print_verbose("Bad request found. Identifying LC and associated ASGs to tag AZ health.")
+                    print_verbose(os.path.basename(__file__), 'info', "Bad request found. Identifying LC and associated ASGs to tag AZ health.")
                     launch_configs = [ lc for lc in all_spot_lcs if
                             request.price == lc.spot_price and
                             request.launch_specification.instance_type == lc.instance_type and
@@ -44,15 +45,15 @@ def main(args):
                     health_dict = { bad_AZ : 1 }
                     for as_group in offending_as_groups:
                         health_tags.append(set_new_AZ_status_tag(as_group, health_dict))
-                    print_verbose("Killing spot request %s." % str(request.id))
+                    print_verbose(os.path.basename(__file__), 'info', "Killing spot request %s." % str(request.id))
                     if not args.dry_run:
                         request.cancel()
                         update_tags(as_conn, health_tags)
                     else:
-                        print_verbose("PSYCH! Dry run.")
+                        print_verbose(os.path.basename(__file__), 'info', "PSYCH! Dry run.")
                 else:
-                    print_verbose("Request %s not older than %s minutes. Continuing..." % (request.id, str(args.minutes)))
-            print_verbose("Region %s pass complete." % region)
+                    print_verbose(os.path.basename(__file__), 'info', "Request %s not older than %s minutes. Continuing..." % (request.id, str(args.minutes)))
+            print_verbose(os.path.basename(__file__), 'info', "Region %s pass complete." % region)
 
         except EC2ResponseError as e:
             handle_exception(e)
@@ -61,33 +62,23 @@ def main(args):
             handle_exception(e)
             sys.exit(1)
 
-    print_verbose("All regions complete")
+    print_verbose(os.path.basename(__file__), 'info', "All regions complete")
 
 
 def get_all_as_groups(as_conn):
     try:
         return as_conn.get_all_groups()
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return get_all_as_groups(as_conn)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return get_all_as_groups(as_conn)
 
 
 def get_spot_lcs(as_conn):
     try:
         return [ l for l in as_conn.get_all_launch_configurations() if l.spot_price ]
     except BotoServerError as e:
-        if e.error_code == 'Throttling':
-            print_verbose('Pausing for AWS throttling...')
-            sleep(1)
-            return get_spot_lcs(as_conn)
-        else:
-            handle_exception(e)
-            sys.exit(1)
+        throttle_response(e)
+        return get_spot_lcs(as_conn)
 
 
 if __name__ == "__main__":
