@@ -26,9 +26,9 @@ def main(args):
                 current_prices = get_current_spot_prices(as_group)
                 health_dict = {}
                 if current_prices:
-                    print_verbose(os.path.basename(__file__), 'info', "Checking prices for %s" % as_group.name)
+                    print_verbose(os.path.basename(__file__), 'info', "Updating health for %s" % as_group.name)
                     for price in current_prices:
-                        if price.price > bid: # * 1.1: #NOTE: make a feature to require buffer here?
+                        if price.price > bid: # * 1.1: #NOTE: potential feature to require a price buffer here?
                             health_dict[price.availability_zone[-1]] = 1
                         else:
                             health_dict[price.availability_zone[-1]] = 0
