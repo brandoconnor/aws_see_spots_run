@@ -6,6 +6,34 @@ A chef cookbook to manage Amazon Web Services spot instances within autoscaling 
 
 See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
+## Attributes
+<table>
+  <tr>
+    <th>Key</th>
+    <th>Type</th>
+    <th>Description</th>
+    <th>Default</th>
+  </tr>
+  <tr>
+    <td><tt>['AWS_see_spots_run']['exec_path']</tt></td>
+    <td><tt>['AWS_see_spots_run']['excluded_regions']</tt></td>
+    <td><tt>['AWS_see_spots_run']['spot_request_killer']['interval']</tt></td>
+    <td><tt>['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']</tt></td>
+    <td><tt>['AWS_see_spots_run']['price_monitor']['interval']</tt></td>
+    <td><tt>['AWS_see_spots_run']['ASG_tagger']['interval']</tt></td>
+    <td><tt>['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']</tt></td>
+    <td><tt>['AWS_see_spots_run']['health_enforcer']['interval']</tt></td>
+    <td><tt>['AWS_see_spots_run']['health_enforcer']['demand_expiration']</tt></td>
+    <td><tt>['AWS_see_spots_run']['health_enforcer']['min_health_threshold']</tt></td>
+
+Attribute | Description | Type | Default
+----------|-------------|------|--------
+`['exec_path']` | Description | String | ``
+`['excluded_regions']` |  |  | ``
+`['excluded_regions']` |  |  | ``
+`['excluded_regions']` |  |  | ``
+`['excluded_regions']` |  |  | ```['excluded_regions']` |  |  | ``
+
 ## Platforms
 * Tested on Amazon Linux with Chef 11.12.8 and should be widely compatible with any Linux flavor and modern Chef client.
 
