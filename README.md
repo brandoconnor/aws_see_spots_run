@@ -7,37 +7,19 @@ A chef cookbook to manage Amazon Web Services spot instances within autoscaling 
 See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
 ## Attributes
-<table>
-  <tr>
-    <th>Key</th>
-    <th>Type</th>
-    <th>Description</th>
-    <th>Default</th>
-  </tr>
-  <tr>
-    <td><tt>['AWS_see_spots_run']['exec_path']</tt></td>
-    <td><tt>['AWS_see_spots_run']['excluded_regions']</tt></td>
-    <td><tt>['AWS_see_spots_run']['spot_request_killer']['interval']</tt></td>
-    <td><tt>['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']</tt></td>
-    <td><tt>['AWS_see_spots_run']['price_monitor']['interval']</tt></td>
-    <td><tt>['AWS_see_spots_run']['ASG_tagger']['interval']</tt></td>
-    <td><tt>['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']</tt></td>
-    <td><tt>['AWS_see_spots_run']['health_enforcer']['interval']</tt></td>
-    <td><tt>['AWS_see_spots_run']['health_enforcer']['demand_expiration']</tt></td>
-    <td><tt>['AWS_see_spots_run']['health_enforcer']['min_health_threshold']</tt></td>
 
 Attribute | Description | Type | Default
 ----------|-------------|------|--------
-`['exec_path']` | Description | String | ``
-`['excluded_regions']` |  |  | ``
-`['spot_request_killer']['interval']` |  |  | ``
-`` |  |  | ``
-`` |  |  | ``
-`` |  |  | ``
-`` |  |  | ``
-`` |  |  | ``
-`` |  |  | ``
-
+`['exec_path']` | Path to where the scripts will live  | String | `'/usr/local/bin'`
+`['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
+`['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
+`['spot_request_killer']['minutes_before_stale']` | Minutes before a spot request is considered stale and considered for early cancellation |  Integer | `8`
+`['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `5`
+`['ASG_tagger']['interval']` | Minutes between runs of `ASG_tagger` | Integer | `30`
+`['ASG_tagger']['min_healthy_AZs']` | Minumum number of availability zones to require in good health before bid is adjusted | Integer | `1`
+`['health_enforcer']['interval']` | Minutes between runs of `health_enforcer` | Integer | `10`
+`['health_enforcer']['demand_expiration']` |  Minutes before an ASG which is temporarily using demand will be checked for return to spots | Integer | `50`
+`['health_enforcer']['min_health_threshold']` | Number of healthy checks required for an AZ to be considered healthy for an ASG (1, 2, or 3) | Integer | `3`
 
 ## Platforms
 * Tested on Amazon Linux with Chef 11.12.8 and should be widely compatible with any Linux flavor and modern Chef client.
