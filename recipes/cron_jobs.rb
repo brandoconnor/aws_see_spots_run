@@ -20,7 +20,7 @@
 
 
 include_recipe "AWS_see_spots_run::packages"
-exclude_regions = '-e #{node['AWS_see_spots_run']['excluded_regions']}'
+exclude_regions = "-e #{node['AWS_see_spots_run']['excluded_regions']}"
 
 cron "ASG_tagger" do
   path "#{node['AWS_see_spots_run']['exec_path']}"
