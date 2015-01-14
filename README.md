@@ -4,7 +4,7 @@
 
 A chef cookbook to manage Amazon Web Services spot instances within autoscaling groups via Chef, cron jobs, AWS APIs, glitter, and magic.
 
-See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details.
+See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
 ## Platforms
 * Tested on Amazon Linux with Chef 11.12.8 and should be widely compatible with any Linux flavor and modern Chef client.
