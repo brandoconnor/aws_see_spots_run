@@ -19,33 +19,35 @@
 #
 
 
-include_recipe "cronwrappy"
-cron_wrapper = node['cronwrappy']['wrapper_exec']
-
 include_recipe "AWS_see_spots_run::packages"
+exclude_regions = '-e #{node['AWS_see_spots_run']['excluded_regions']}'
 
-#XXX kill cronwrappy bits from cookbook before going public
 cron "ASG_tagger" do
-  command "#{cron_wrapper} -f ASG_tagger -c 'python27 #{node['AWS_see_spots_run']['exec_path']}ASG_tagger.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']} -v'"
+  path "#{node['AWS_see_spots_run']['exec_path']}"
+  command "ASG_tagger.py #{exclude_regions} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']}"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"
 end
 
 cron "spot_request_killer" do
-  command "#{cron_wrapper} -f spot_request_killer -c 'python27 #{node['AWS_see_spots_run']['exec_path']}spot_request_killer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']} -v'"
+  path "#{node['AWS_see_spots_run']['exec_path']}"
+  command "spot_request_killer.py #{exclude_regions} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']}"
   minute "*/#{node['AWS_see_spots_run']['spot_request_killer']['interval']}"
 end
 
 cron "spot_health_enforcer" do
-  command "#{cron_wrapper} -f spot_health_enforcer -c 'python27 #{node['AWS_see_spots_run']['exec_path']}health_enforcer.py -e #{node['AWS_see_spots_run']['excluded_regions']} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['health_enforcer']['min_health_threshold']} -v'"
+  path "#{node['AWS_see_spots_run']['exec_path']}"
+  command "health_enforcer.py #{exclude_regions} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['health_enforcer']['min_health_threshold']}"
   minute "*/#{node['AWS_see_spots_run']['health_enforcer']['interval']}"
 end
 
 cron "spot_price_monitor" do
-  command "#{cron_wrapper} -f spot_price_monitor -c 'python27 #{node['AWS_see_spots_run']['exec_path']}price_monitor.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
+  path "#{node['AWS_see_spots_run']['exec_path']}"
+  command "price_monitor.py #{exclude_regions}"
   minute "*/#{node['AWS_see_spots_run']['price_monitor']['interval']}"
 end
 
 cron "remove_old_launch_configs" do
-  command "#{cron_wrapper} -f remove_old_launch_configs -c 'python27 #{node['AWS_see_spots_run']['exec_path']}remove_old_launch_configs.py -e #{node['AWS_see_spots_run']['excluded_regions']} -v'"
+  path "#{node['AWS_see_spots_run']['exec_path']}"
+  command "remove_old_launch_configs.py #{exclude_regions}"
   hour "0"
 end
