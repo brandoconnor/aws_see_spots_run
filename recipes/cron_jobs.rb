@@ -21,33 +21,29 @@
 
 include_recipe "AWS_see_spots_run::packages"
 exclude_regions = "-e #{node['AWS_see_spots_run']['excluded_regions']}"
+exec_path = "#{node['AWS_see_spots_run']['exec_path']}/"
 
 cron "ASG_tagger" do
-  path "#{node['AWS_see_spots_run']['exec_path']}"
-  command "ASG_tagger.py #{exclude_regions} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']}"
+  command "#{exec_path}ASG_tagger.py #{exclude_regions} -m #{node['AWS_see_spots_run']['ASG_tagger']['min_healthy_AZs']}"
   minute "*/#{node['AWS_see_spots_run']['ASG_tagger']['interval']}"
 end
 
 cron "spot_request_killer" do
-  path "#{node['AWS_see_spots_run']['exec_path']}"
-  command "spot_request_killer.py #{exclude_regions} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']}"
+  command "#{exec_path}spot_request_killer.py #{exclude_regions} -m #{node['AWS_see_spots_run']['spot_request_killer']['minutes_before_stale']}"
   minute "*/#{node['AWS_see_spots_run']['spot_request_killer']['interval']}"
 end
 
 cron "spot_health_enforcer" do
-  path "#{node['AWS_see_spots_run']['exec_path']}"
-  command "health_enforcer.py #{exclude_regions} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['health_enforcer']['min_health_threshold']}"
+  command "#{exec_path}health_enforcer.py #{exclude_regions} -x #{node['AWS_see_spots_run']['health_enforcer']['demand_expiration']} -m #{node['AWS_see_spots_run']['health_enforcer']['min_health_threshold']}"
   minute "*/#{node['AWS_see_spots_run']['health_enforcer']['interval']}"
 end
 
 cron "spot_price_monitor" do
-  path "#{node['AWS_see_spots_run']['exec_path']}"
-  command "price_monitor.py #{exclude_regions}"
+  command "#{exec_path}price_monitor.py #{exclude_regions}"
   minute "*/#{node['AWS_see_spots_run']['price_monitor']['interval']}"
 end
 
 cron "remove_old_launch_configs" do
-  path "#{node['AWS_see_spots_run']['exec_path']}"
-  command "remove_old_launch_configs.py #{exclude_regions}"
+  command "#{exec_path}remove_old_launch_configs.py #{exclude_regions}"
   hour "0"
 end

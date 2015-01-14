@@ -3,7 +3,7 @@
 # Attributes:: default
 #
 
-default['AWS_see_spots_run']['exec_path'] = '/usr/local/bin/'
+default['AWS_see_spots_run']['exec_path'] = '/usr/local/bin'
 default['AWS_see_spots_run']['excluded_regions'] = 'cn-north-1 us-gov-west-1'
 
 default['AWS_see_spots_run']['spot_request_killer']['interval'] = 2
