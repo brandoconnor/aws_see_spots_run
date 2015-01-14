@@ -30,9 +30,14 @@ Attribute | Description | Type | Default
 ----------|-------------|------|--------
 `['exec_path']` | Description | String | ``
 `['excluded_regions']` |  |  | ``
-`['excluded_regions']` |  |  | ``
-`['excluded_regions']` |  |  | ``
-`['excluded_regions']` |  |  | ```['excluded_regions']` |  |  | ``
+`['spot_request_killer']['interval']` |  |  | ``
+`` |  |  | ``
+`` |  |  | ``
+`` |  |  | ``
+`` |  |  | ``
+`` |  |  | ``
+`` |  |  | ``
+
 
 ## Platforms
 * Tested on Amazon Linux with Chef 11.12.8 and should be widely compatible with any Linux flavor and modern Chef client.
