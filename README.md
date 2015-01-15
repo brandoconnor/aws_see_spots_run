@@ -25,7 +25,7 @@ Attribute | Description | Type | Default
 `['exec_path']` | Path to where the scripts will live  | String | `'/usr/local/bin'`
 `['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
 `['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
-`['spot_request_killer']['minutes_before_stale']` | Minutes before a spot request is considered stale and considered for  cancellation |  Integer | `8`
+`['spot_request_killer']['minutes_before_stale']` | Minutes before a spot request is considered stale and tested for  cancellation |  Integer | `8`
 `['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `5`
 `['ASG_tagger']['interval']` | Minutes between runs of `ASG_tagger` | Integer | `30`
 `['ASG_tagger']['min_healthy_AZs']` | Minumum number of availability zones to require in good health before bid is adjusted | Integer | `1`
