@@ -7,6 +7,7 @@ A chef cookbook to manage Amazon Web Services spot instances within autoscaling 
 See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
 ## Attributes
+Extended info on the [Cookbook details wiki page](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki/Cookbook-details#attributes-in-attributesdefaultrb).
 
 Attribute | Description | Type | Default
 ----------|-------------|------|--------
@@ -21,8 +22,16 @@ Attribute | Description | Type | Default
 `['health_enforcer']['demand_expiration']` |  Minutes before an ASG which is temporarily using demand will be checked for return to spots | Integer | `50`
 `['health_enforcer']['min_health_threshold']` | Number of healthy checks required for an AZ to be considered healthy for an ASG (1, 2, or 3) | Integer | `3`
 
-## Platforms
-* Tested on Amazon Linux with Chef 11.12.8 and should be widely compatible with any Linux flavor and modern Chef client.
+## Requirements
+### Chef
+* Chef 11+
+
+### Cookbook dependencies
+* [Python](https://supermarket.chef.io/cookbooks/python) >= 1.0.3
+
+### Platforms
+* Debian, Ubuntu
+* CentOS, Red Hat, Fedora, Amazon Linux
 
 ## Bugs / Development / Contributing
 * Report issues/questions/feature requests on in the [Issues](https://github.com/dreamboxlearning/AWS_see_spots_run/issues) section.
