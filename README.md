@@ -6,22 +6,6 @@ A chef cookbook to manage Amazon Web Services spot instances within autoscaling 
 
 See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
-## Attributes
-Extended info on the [Cookbook details wiki page](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki/Cookbook-details#attributes-in-attributesdefaultrb).
-
-Attribute | Description | Type | Default
-----------|-------------|------|--------
-`['exec_path']` | Path to where the scripts will live  | String | `'/usr/local/bin'`
-`['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
-`['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
-`['spot_request_killer']['minutes_before_stale']` | Minutes before a spot request is considered stale and considered for early cancellation |  Integer | `8`
-`['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `5`
-`['ASG_tagger']['interval']` | Minutes between runs of `ASG_tagger` | Integer | `30`
-`['ASG_tagger']['min_healthy_AZs']` | Minumum number of availability zones to require in good health before bid is adjusted | Integer | `1`
-`['health_enforcer']['interval']` | Minutes between runs of `health_enforcer` | Integer | `10`
-`['health_enforcer']['demand_expiration']` |  Minutes before an ASG which is temporarily using demand will be checked for return to spots | Integer | `50`
-`['health_enforcer']['min_health_threshold']` | Number of healthy checks required for an AZ to be considered healthy for an ASG (1, 2, or 3) | Integer | `3`
-
 ## Requirements
 ### Chef
 * Chef 11+
@@ -32,6 +16,22 @@ Attribute | Description | Type | Default
 ### Platforms
 * Debian, Ubuntu
 * CentOS, Red Hat, Fedora, Amazon Linux
+
+## Attributes
+Extended info on the [Cookbook details wiki page](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki/Cookbook-details#attributes-in-attributesdefaultrb).
+
+Attribute | Description | Type | Default
+----------|-------------|------|--------
+`['exec_path']` | Path to where the scripts will live  | String | `'/usr/local/bin'`
+`['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
+`['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
+`['spot_request_killer']['minutes_before_stale']` | Minutes before a spot request is considered stale and considered for  cancellation |  Integer | `8`
+`['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `5`
+`['ASG_tagger']['interval']` | Minutes between runs of `ASG_tagger` | Integer | `30`
+`['ASG_tagger']['min_healthy_AZs']` | Minumum number of availability zones to require in good health before bid is adjusted | Integer | `1`
+`['health_enforcer']['interval']` | Minutes between runs of `health_enforcer` | Integer | `10`
+`['health_enforcer']['demand_expiration']` |  Minutes before an ASG which is temporarily using demand will be checked for return to spots | Integer | `50`
+`['health_enforcer']['min_health_threshold']` | Number of healthy checks required for an AZ to be considered healthy for an ASG (1, 2, or 3) | Integer | `3`
 
 ## Bugs / Development / Contributing
 * Report issues/questions/feature requests on in the [Issues](https://github.com/dreamboxlearning/AWS_see_spots_run/issues) section.
