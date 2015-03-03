@@ -6,7 +6,7 @@ description      'Installs/Configures AWS_see_spots_run, a spot instance managem
 long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
 #source_url       'https://github.com/dreamboxlearning/AWS_see_spots_run'
 #issues_url       'https://github.com/dreamboxlearning/AWS_see_spots_run/issues'
-version          '0.1.3'
+version          '0.1.4'
 depends          'python'
 
 %w[

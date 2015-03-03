@@ -44,6 +44,7 @@ def main(args):
                     bad_AZ = request.launch_group.split(request.region.name)[1][0]
                     health_dict = { bad_AZ : 1 }
                     for as_group in offending_as_groups:
+                        print_verbose(os.path.basename(__file__), 'info', "The following AZ will be tagged as an offender: %s." % str(as_group))
                         health_tags.append(set_new_AZ_status_tag(as_group, health_dict))
                     print_verbose(os.path.basename(__file__), 'info', "Killing spot request %s." % str(request.id))
                     if not args.dry_run:
