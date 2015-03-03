@@ -26,7 +26,7 @@ Attribute | Description | Type | Default
 `['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
 `['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
 `['spot_request_killer']['minutes_before_stale']` | Minutes before an unfulfilled spot request is considered stale and tested for cancellation |  Integer | `8`
-`['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `5`
+`['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `6`
 `['ASG_tagger']['interval']` | Minutes between runs of `ASG_tagger` | Integer | `30`
 `['ASG_tagger']['min_healthy_AZs']` | Minumum number of availability zones to require in good health before bid is adjusted | Integer | `1`
 `['health_enforcer']['interval']` | Minutes between runs of `health_enforcer` | Integer | `10`
