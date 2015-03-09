@@ -3,6 +3,7 @@ Common functions used throughout this cookbook's codebase.
 '''
 import ast
 import boto
+import collections
 import demjson
 import logging
 import os
@@ -182,6 +183,11 @@ def get_current_spot_prices(as_group):
                 start_time=start_time,
                 instance_type=get_launch_config(as_group).instance_type
                 )
+        for AZ in [x for x, y in collections.Counter([p.availability_zone for p in prices]).items() if y > 1]:
+            old_duplicates = [ p for p in prices if p.availability_zone == AZ ]
+            old_duplicates.sort(key=lambda x: x.timestamp)
+            for dup in old_duplicates[:1]:
+                prices.remove(dup)
         return prices
 
     except Exception as e:
