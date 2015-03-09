@@ -94,15 +94,15 @@ def get_rounded_price(price):
 def find_best_bid_price(as_group):
     try:
         prices = get_current_spot_prices(as_group)
-        print_verbose(os.path.basename(__file__), 'info', prices) #XXX potentially still working through some issues here
+        print_verbose(os.path.basename(__file__), 'info', prices)
         if len(prices) != len(get_usable_zones(as_group)):
             raise Exception ("Different number of AZs found than expected. Prices = %s\nAZs = %s" % (str(prices), str(get_usable_zones(as_group))))
         best_bid = sorted(prices, key=lambda price: price.price)[int(get_min_AZs(as_group)) - 1].price
         print_verbose(os.path.basename(__file__), 'info', 'best_bid=', best_bid)
         max_bid = get_max_bid(as_group)
         print_verbose(os.path.basename(__file__), 'info', 'max_bid=', max_bid)
-        if get_rounded_price(best_bid) >= get_rounded_price(max_bid):
-            return False # since ondemand instances are faster to spin up and more available, if demand and max_bid are equal, ondemand wins out.
+        if get_rounded_price(best_bid) >= get_rounded_price(max_bid) or get_rounded_price(get_bid(as_group)) >= get_rounded_price(get_ondemand_price(get_launch_config(as_group))):
+            return False # since ondemand instances are faster to spin up and more available, if demand and max_bid are equal, ondemand should win out.
         else:
             return get_rounded_price(best_bid)
     except Exception as e:
@@ -177,7 +177,8 @@ def modify_price(as_group, new_bid, minutes_multiplier=None, demand_expiration=N
                     modify_as_group_AZs(as_group, get_usable_zones(as_group))
 
         print_verbose(os.path.basename(__file__), 'info', "Autoscaling group launch configuration update complete.")
-        old_launch_config.delete()
+        print_verbose(os.path.basename(__file__), 'info', "Deleting old launch_config: %s" % old_launch_config)
+        old_launch_config.delete() #XXX is this actually working?
 
     except Exception as e:
         handle_exception(e)
