@@ -37,7 +37,7 @@ def main(args):
                             request.launch_specification.instance_profile['name'] == lc.instance_profile_name and
                             request.launch_specification.image_id == lc.image_id ] # This could be made hella specific if we want to go that route
                     if len(launch_configs) != 1:
-                        raise Exception ("Only one launch config should be found: %s" % launch_configs)
+                        raise Exception ("Only one launch config should be found. You may need to run remove_old_launch_configs.py to clear this: %s" % launch_configs)
                     else:
                         launch_config = launch_configs[0]
                     offending_as_groups = [ g for g in as_groups if g.launch_config_name == launch_config.name ]
