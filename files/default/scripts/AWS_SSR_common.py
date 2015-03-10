@@ -164,7 +164,6 @@ def get_SSR_groups(as_conn):
 def get_current_spot_prices(as_group):
     try:
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
-
         start_time = datetime.now() - timedelta(minutes=5)
         start_time = start_time.isoformat()
         end_time = datetime.now().isoformat()
