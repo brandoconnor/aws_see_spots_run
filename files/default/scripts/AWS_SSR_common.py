@@ -79,7 +79,6 @@ def get_image(as_group):
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
         image = ec2_conn.get_image(launch_config.image_id)
         return image
-
     except Exception as e:
         handle_exception(e)
         sys.exit(1)
@@ -134,6 +133,9 @@ def get_bid(as_group):
     except BotoServerError as e:
         throttle_response(e)
         return get_bid(as_group)
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def set_new_AZ_status_tag(as_group, health_dict):

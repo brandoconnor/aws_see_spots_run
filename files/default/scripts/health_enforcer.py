@@ -45,7 +45,7 @@ def main(args):
                             print_verbose(os.path.basename(__file__), 'info', "Looking at %s instances for potential termination" % str(len(as_group.instances)))
                             for instance in as_group.instances:
                                 if not [ i for i in all_ec2_instances if i.instances[0].id == instance.instance_id ][0].instances[0].spot_instance_request_id and not dry_run:
-                                    as_conn.terminate_instance(instance.instance_id, decrement_capacity=False)
+                                    terminate_instance(instance)
                         else:
                             print_verbose(os.path.basename(__file__), 'info', 'Extending the life of demand instances as we cant fulfill with spots still')
                             set_tag_dict_value(as_group, 'SSR_config', 'demand_expiration', int(time.time()) + (args.demand_expiration * minutes_multiplier))
@@ -81,6 +81,18 @@ def main(args):
             return 1
 
     print_verbose(os.path.basename(__file__), 'info', "All regions complete")
+
+
+def terminate_instance(instance)
+    try:
+        instance.connection.terminate_instance(instance.instance_id, decrement_capacity=False)
+        sleep(30)
+    except BotoServerError as e:
+        throttle_response(e)
+        return terminate_instance(instance)
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
 
 
 def get_min_AZs(as_group):
