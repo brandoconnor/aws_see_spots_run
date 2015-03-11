@@ -83,7 +83,7 @@ def main(args):
     print_verbose(os.path.basename(__file__), 'info', "All regions complete")
 
 
-def terminate_instance(instance)
+def terminate_instance(instance):
     try:
         instance.connection.terminate_instance(instance.instance_id, decrement_capacity=False)
         sleep(30)
