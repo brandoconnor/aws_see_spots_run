@@ -43,10 +43,11 @@ For example:
 
 1. Fork the repo
 2. Create your feature branch (`git checkout -b my-new-feature`)
-3. If possible, write some tests.
-4. Commit your awesome changes (`git commit -am 'Added some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request and tell us about it your changes.
+3. Connect the existing git hooks (`./bin/create_local_hooks.sh`)
+4. If possible, write some tests.
+5. Commit your awesome changes (`git commit -am 'Added some feature'`)
+6. Push to the branch (`git push origin my-new-feature`)
+7. Create a new Pull Request and tell us about it your changes.
 
 ## LICENSE
 Copyright 2015 Dreambox Learning, Inc.
