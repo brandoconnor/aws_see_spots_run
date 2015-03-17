@@ -18,15 +18,14 @@
 # limitations under the License.
 #
 
+include_recipe 'python::pip'
 
-include_recipe  "python::pip"
-
-python_packages = ['argparse','boto','requests', 'demjson',]
+python_packages = %w(argparse boto requests demjson)
 python_packages.each do |pkg|
   python_pip pkg
 end
 
-remote_directory "scripts" do
+remote_directory 'scripts' do
   path node['AWS_see_spots_run']['exec_path']
   files_mode 0755
   files_backup 0
