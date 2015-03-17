@@ -47,7 +47,7 @@ For example:
 4. If possible, write some tests.
 5. Commit your awesome changes (`git commit -am 'Added some feature'`)
 6. Push to the branch (`git push origin my-new-feature`)
-7. Create a new Pull Request and tell us about it your changes.
+7. Create a new Pull Request and tell us about your changes.
 
 ## LICENSE
 Copyright 2015 Dreambox Learning, Inc.
