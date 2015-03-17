@@ -6,16 +6,15 @@ import argparse
 import boto
 import os
 import sys
-from AWS_SSR_common import *
-from boto.ec2 import autoscale
-from boto.exception import BotoServerError, EC2ResponseError
-from time import sleep
+from AWS_SSR_common import dry_run_necessaries, print_verbose, handle_exception, throttle_response
+from boto.exception import BotoServerError
+
 
 def main(args):
     global verbose
     global dry_run
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
+    for region in [r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions]:
         try:
             print_verbose(os.path.basename(__file__), 'info', 'Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
@@ -23,7 +22,7 @@ def main(args):
             as_groups = as_conn.get_all_groups()
 
             for launch_config in all_launch_configs:
-                if not [ g for g in as_groups if g.launch_config_name == launch_config.name ]:
+                if not [g for g in as_groups if g.launch_config_name == launch_config.name]:
                     print_verbose(os.path.basename(__file__), 'info', "Launch config %s looks to be abandoned." % launch_config.name)
                     if not dry_run:
                         print_verbose(os.path.basename(__file__), 'info', "DESTROY!")

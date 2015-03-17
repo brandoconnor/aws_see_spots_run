@@ -7,15 +7,10 @@ All values (aside from AZ_status) should be a set just once. If a user wants to
 override a tag value, that will be honored and not overridden by SSR.
 '''
 import argparse
-import ast
 import boto
 import os
 import sys
-import time
-from AWS_SSR_common import *
-from boto import ec2
-from boto.ec2 import autoscale
-from boto.ec2.autoscale import Tag
+from AWS_SSR_common import dry_run_necessaries, print_verbose, handle_exception, get_tag_dict_value, get_launch_config, get_bid, create_tag, get_potential_AZs
 from boto.exception import BotoServerError, EC2ResponseError
 
 
@@ -23,43 +18,43 @@ def main(args):
     global verbose
     global dry_run
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
+    for region in [r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions]:
         try:
             print_verbose(os.path.basename(__file__), 'info', 'Starting pass on %s' % region)
             ec2_conn = boto.ec2.connect_to_region(region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
 
             all_groups = as_conn.get_all_groups()
-            spot_LCs = [ e for e in as_conn.get_all_launch_configurations() if e.spot_price ]
+            spot_LCs = [e for e in as_conn.get_all_launch_configurations() if e.spot_price]
             # these need to be pulled from the same all_groups list or duplicate objects will be seen as distinct.
-            spot_LC_groups = [ g for g in all_groups if g.launch_config_name in [ s.name for s in spot_LCs ] ]
-            previously_SSR_managed_groups = [ g for g in all_groups if get_tag_dict_value(g, 'SSR_config') and  get_tag_dict_value(g, 'SSR_config')['enabled'] == True ]
+            spot_LC_groups = [g for g in all_groups if g.launch_config_name in [s.name for s in spot_LCs]]
+            previously_SSR_managed_groups = [g for g in all_groups if get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled'] is True]
 
             all_groups = list(set(spot_LC_groups + previously_SSR_managed_groups))
             for as_group in all_groups:
                 print_verbose(os.path.basename(__file__), 'info', "Evaluating %s" % as_group.name)
 
                 # this latter condition can happen when tag value (a dict) can't be interpreted by ast.literal_eval()
-                if args.reset_tags  or not [ t for t in as_group.tags if t.key == 'SSR_config' ] or not get_tag_dict_value(as_group, 'SSR_config'):
+                if args.reset_tags or not [t for t in as_group.tags if t.key == 'SSR_config'] or not get_tag_dict_value(as_group, 'SSR_config'):
                     print_verbose(os.path.basename(__file__), 'info', 'Tags not found or reset tags option flagged. Adding all tags anew now.')
                     init_SSR_config_tag(as_group, args.min_healthy_AZs)
                     init_AZ_status_tag(as_group)
 
-                elif [ t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
+                elif [t for t in as_group.tags if t.key == 'SSR_config' and not get_tag_dict_value(as_group, 'SSR_config')['enabled']]:
                     print_verbose(os.path.basename(__file__), 'info', 'SSR_config DISABLED. Doing nothing.')
 
-                elif [ t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled'] ]:
+                elif [t for t in as_group.tags if t.key == 'SSR_config' and get_tag_dict_value(as_group, 'SSR_config')['enabled']]:
                     print_verbose(os.path.basename(__file__), 'info', 'SSR management enabled. Verifying all config values in place.')
                     config_keys = ['enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration']
 
                     if not verify_tag_dict_keys(as_group, 'SSR_config', config_keys) or not get_tag_dict_value(as_group, 'SSR_config')['LC_name'] == as_group.launch_config_name[-155:]:
-                        if not get_launch_config(as_group).spot_price: # this would indicate a change to the LC outside of SSR scope. In that case, we need to disable SSR via tag deletion.
+                        if not get_launch_config(as_group).spot_price:  # this would indicate a change to the LC outside of SSR scope. In that case, we need to disable SSR via tag deletion.
                             del_SSR_tags(as_group)
                             continue
                         else:
                             init_SSR_config_tag(as_group, args.min_healthy_AZs)
 
-                    zones = [ z.name[-1] for z in ec2_conn.get_all_zones() ]
+                    zones = [z.name[-1] for z in ec2_conn.get_all_zones()]
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
                         init_AZ_status_tag(as_group)
 
@@ -82,19 +77,18 @@ def main(args):
 
 
 def del_SSR_tags(as_group):
-    return as_group.connection.delete_tags([ t for t in as_group.tags if t.key == 'AZ_status' or t.key == 'SSR_config' ])
+    return as_group.connection.delete_tags([t for t in as_group.tags if t.key == 'AZ_status' or t.key == 'SSR_config'])
 
 
 def init_SSR_config_tag(as_group, min_healthy_AZs):
     try:
-        config = get_launch_config(as_group)
         config_dict = {
-                'enabled': True,
-                'original_bid': get_bid(as_group),
-                'min_AZs': min_healthy_AZs,
-                'LC_name': as_group.launch_config_name[-155:], # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
-                "demand_expiration": False,
-                }
+            'enabled': True,
+            'original_bid': get_bid(as_group),
+            'min_AZs': min_healthy_AZs,
+            'LC_name': as_group.launch_config_name[-155:],  # LC name size can be up to 255 chars (also tag value max length). Final chars should be unique so we cut this short
+            'demand_expiration': False,
+            }
         create_tag(as_group, 'SSR_config', config_dict)
     except Exception as e:
         handle_exception(e)
@@ -106,13 +100,12 @@ def init_AZ_status_tag(as_group):
         potential_zones = get_potential_AZs(as_group)
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
         all_zones = ec2_conn.get_all_zones()
-        epoch_time = int(time.time())
         zone_dict = {}
         for zone in all_zones:
             if zone.name in potential_zones:
-                zone_dict[zone.name[-1]] = {"use": True, "health": [0,0,0]}
+                zone_dict[zone.name[-1]] = {"use": True, "health": [0, 0, 0]}
             else:
-                zone_dict[zone.name[-1]] = {"use": False, "health": [0,0,0]}
+                zone_dict[zone.name[-1]] = {"use": False, "health": [0, 0, 0]}
         return create_tag(as_group, "AZ_status", zone_dict)
     except Exception as e:
         handle_exception(e)

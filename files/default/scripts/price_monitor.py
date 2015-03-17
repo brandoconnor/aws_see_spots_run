@@ -4,18 +4,16 @@ Updates health tags for every SSR managed ASG, comparing the LC's bid price to e
 for that LC's instance type.
 '''
 import argparse
-import ast
 import boto
 import os
 import sys
-from AWS_SSR_common import *
-from boto import ec2
-from boto.ec2 import autoscale
-from boto.exception import BotoServerError, EC2ResponseError
+from AWS_SSR_common import dry_run_necessaries, print_verbose, handle_exception, get_SSR_groups, get_bid, get_current_spot_prices, set_new_AZ_status_tag, update_tags
+from boto.exception import EC2ResponseError
+
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
-    for region in [ r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions ]:
+    for region in [r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions]:
         try:
             print_verbose(os.path.basename(__file__), 'info', 'Starting pass on %s' % region)
             as_conn = boto.ec2.autoscale.connect_to_region(region)
@@ -28,7 +26,7 @@ def main(args):
                 if current_prices:
                     print_verbose(os.path.basename(__file__), 'info', "Updating health for %s" % as_group.name)
                     for price in current_prices:
-                        if price.price > bid: # * 1.1: #NOTE: potential feature to require a price buffer here?
+                        if price.price > bid:  # * 1.1: #NOTE: potential feature to require a price buffer here?
                             health_dict[price.availability_zone[-1]] = 1
                         else:
                             health_dict[price.availability_zone[-1]] = 0

@@ -4,35 +4,27 @@ Common functions used throughout this cookbook's codebase.
 import ast
 import boto
 import collections
-import demjson
 import logging
 import os
-import random
-import requests
-import string
 import sys
-from boto import ec2
 from boto.ec2.autoscale import Tag
 from boto.exception import BotoServerError
 from datetime import datetime, timedelta
 from time import sleep
-#if sys.version_info[0] == 2:
-#    from __future__ import print_function
+
+verbose = False  # keeping the linter happy
+dry_run = False
+
 
 def dry_run_necessaries(d, v):
     global verbose
     global dry_run
-    verbose = False
-    dry_run = False
     if d:
         print("This is a dry run. Actions will not be executed and output is verbose.")
         verbose = True
         dry_run = True
     elif v:
         verbose = True
-    if verbose:
-        global logger
-        logger = set_up_logging()
     return verbose, dry_run
 
 
@@ -49,20 +41,16 @@ def set_up_logging():
 
 def print_verbose(filename, log_lvl, *args):
     if verbose:
-        log_lvl_map = {
-                "info": 20 ,
-                "warn": 30,
-                "err": 40,
-                "crit": 50, }
+        log_lvl_map = {"info": 20, "warn": 30, "err": 40, "crit": 50}
         for arg in args:
-            logger.log(log_lvl_map[log_lvl], filename +  " - " + str(arg))
+            logger.log(log_lvl_map[log_lvl], filename + " - " + str(arg))
 
 
 def handle_exception(exception):
-    verbose = True
+    # verbose = True  #XXX is this needed?
     exc_traceback = sys.exc_info()[2]
     print_verbose(os.path.basename(__file__), 'err', "Exception caught on line %s of %s: %s" %
-            (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
+                  (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
 
 
 def get_launch_config(as_group):
@@ -103,24 +91,22 @@ def update_tags(as_conn, health_tags):
 
 def create_tag(as_group, key, value):
     try:
-        tag = Tag(key=key,
-                    value=value,
-                    resource_id=as_group.name)
+        tag = Tag(key=key, value=value, resource_id=as_group.name)
         print_verbose(os.path.basename(__file__), 'info', "Creating tag for %s." % key)
         if dry_run:
             return True
         return as_group.connection.create_or_update_tags([tag])
 
-    except BotoServerError as e: # this often indicates tag limit has been exceeded
+    except BotoServerError as e:  # this often indicates tag limit has been exceeded
         throttle_response(e)
         return create_tag(as_group, key, value)
 
 
 def get_tag_dict_value(as_group, tag_key):
     try:
-        return ast.literal_eval([ t for t in as_group.tags if t.key == tag_key ][0].value)
+        return ast.literal_eval([t for t in as_group.tags if t.key == tag_key][0].value)
     except:
-        return False # this value needs to be tested each time
+        return False  # this value needs to be tested each time
 
 
 def get_bid(as_group):
@@ -141,13 +127,11 @@ def get_bid(as_group):
 def set_new_AZ_status_tag(as_group, health_dict):
     try:
         health_values = get_tag_dict_value(as_group, 'AZ_status')
-        for k,v in health_dict.items():
+        for k, v in health_dict.items():
             health_values[k]['health'].pop()
             health_values[k]['health'].insert(0, v)
         print_verbose(os.path.basename(__file__), 'info', health_values)
-        tag = Tag(key='AZ_status',
-                value=health_values,
-                resource_id=as_group.name)
+        tag = Tag(key='AZ_status', value=health_values, resource_id=as_group.name)
         return tag
     except Exception as e:
         handle_exception(e)
@@ -156,8 +140,8 @@ def set_new_AZ_status_tag(as_group, health_dict):
 
 def get_SSR_groups(as_conn):
     try:
-        return [ g for g in as_conn.get_all_groups() if
-                [ t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled'] ] ]
+        return [g for g in as_conn.get_all_groups() if
+                [t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled']]]
     except BotoServerError as e:
         throttle_response(e)
         return get_SSR_groups(as_conn)
@@ -179,13 +163,13 @@ def get_current_spot_prices(as_group):
         if as_group.vpc_zone_identifier:
             os_type += ' (Amazon VPC)'
         prices = ec2_conn.get_spot_price_history(
-                product_description=os_type,
-                end_time=end_time,
-                start_time=start_time,
-                instance_type=get_launch_config(as_group).instance_type
-                )
+            product_description=os_type,
+            end_time=end_time,
+            start_time=start_time,
+            instance_type=get_launch_config(as_group).instance_type
+            )
         for AZ in [x for x, y in collections.Counter([p.availability_zone for p in prices]).items() if y > 1]:
-            old_duplicates = [ p for p in prices if p.availability_zone == AZ ]
+            old_duplicates = [p for p in prices if p.availability_zone == AZ]
             old_duplicates.sort(key=lambda x: x.timestamp)
             for dup in old_duplicates[:1]:
                 prices.remove(dup)
@@ -201,7 +185,7 @@ def get_potential_AZs(as_group):
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
         all_zones = ec2_conn.get_all_zones()
         prices = get_current_spot_prices(as_group)
-        return [ z.name for z in all_zones if z.name in list(set([ p.availability_zone for p in prices ])) and z.state == 'available' ]
+        return [z.name for z in all_zones if z.name in list(set([p.availability_zone for p in prices])) and z.state == 'available']
     except Exception as e:
         handle_exception(e)
         sys.exit(1)
@@ -213,3 +197,6 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+else:
+    global logger
+    logger = set_up_logging()
