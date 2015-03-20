@@ -2,15 +2,16 @@
 Common functions used throughout this cookbook's codebase.
 '''
 import ast
-import boto
 import collections
 import logging
 import os
 import sys
-from boto.ec2.autoscale import Tag
-from boto.exception import BotoServerError
 from datetime import datetime, timedelta
 from time import sleep
+
+import boto
+from boto.ec2.autoscale import Tag
+from boto.exception import BotoServerError
 
 verbose = False  # keeping the linter happy
 dry_run = False
@@ -20,7 +21,8 @@ def dry_run_necessaries(d, v):
     global verbose
     global dry_run
     if d:
-        print("This is a dry run. Actions will not be executed and output is verbose.")
+        print(
+            "This is a dry run. Actions will not be executed and output is verbose.")
         verbose = True
         dry_run = True
     elif v:
@@ -74,7 +76,8 @@ def get_image(as_group):
 
 def throttle_response(e):
     if e.error_code == 'Throttling':
-        print_verbose(os.path.basename(__file__), 'warn', 'Pausing for AWS throttling...')
+        print_verbose(
+            os.path.basename(__file__), 'warn', 'Pausing for AWS throttling...')
         sleep(1)
     else:
         handle_exception(e)
@@ -92,12 +95,14 @@ def update_tags(as_conn, health_tags):
 def create_tag(as_group, key, value):
     try:
         tag = Tag(key=key, value=value, resource_id=as_group.name)
-        print_verbose(os.path.basename(__file__), 'info', "Creating tag for %s." % key)
+        print_verbose(
+            os.path.basename(__file__), 'info', "Creating tag for %s." % key)
         if dry_run:
             return True
         return as_group.connection.create_or_update_tags([tag])
 
-    except BotoServerError as e:  # this often indicates tag limit has been exceeded
+    # this often indicates tag limit has been exceeded
+    except BotoServerError as e:
         throttle_response(e)
         return create_tag(as_group, key, value)
 
@@ -115,7 +120,7 @@ def get_bid(as_group):
         if config.spot_price:
             return config.spot_price
         else:
-            return get_tag_dict_value(as_group, 'SSR_config')['original_bid']
+            return get_tag_dict_value(as_group, 'ssr_config')['original_bid']
     except BotoServerError as e:
         throttle_response(e)
         return get_bid(as_group)
@@ -131,20 +136,21 @@ def set_new_AZ_status_tag(as_group, health_dict):
             health_values[k]['health'].pop()
             health_values[k]['health'].insert(0, v)
         print_verbose(os.path.basename(__file__), 'info', health_values)
-        tag = Tag(key='AZ_status', value=health_values, resource_id=as_group.name)
+        tag = Tag(
+            key='AZ_status', value=health_values, resource_id=as_group.name)
         return tag
     except Exception as e:
         handle_exception(e)
         sys.exit(1)
 
 
-def get_SSR_groups(as_conn):
+def get_ssr_groups(as_conn):
     try:
         return [g for g in as_conn.get_all_groups() if
-                [t for t in g.tags if t.key == 'SSR_config' and get_tag_dict_value(g, 'SSR_config') and get_tag_dict_value(g, 'SSR_config')['enabled']]]
+                [t for t in g.tags if t.key == 'ssr_config' and get_tag_dict_value(g, 'ssr_config') and get_tag_dict_value(g, 'ssr_config')['enabled']]]
     except BotoServerError as e:
         throttle_response(e)
-        return get_SSR_groups(as_conn)
+        return get_ssr_groups(as_conn)
 
 
 def get_current_spot_prices(as_group):
@@ -167,7 +173,7 @@ def get_current_spot_prices(as_group):
             end_time=end_time,
             start_time=start_time,
             instance_type=get_launch_config(as_group).instance_type
-            )
+        )
         for AZ in [x for x, y in collections.Counter([p.availability_zone for p in prices]).items() if y > 1]:
             old_duplicates = [p for p in prices if p.availability_zone == AZ]
             old_duplicates.sort(key=lambda x: x.timestamp)

@@ -1,10 +1,10 @@
-# AWS_see_spots_run Cookbook
+# aws_see_spots_run Cookbook
 
 ## Description
 
-A chef cookbook to manage Amazon Web Services spot instances within autoscaling groups via Chef, cron jobs, AWS APIs, glitter, and magic.
+A chef cookbook to manage Amazon Web Services spot instances within autoscaling groups via Chef, cron jobs, aws APIs, glitter, and magic.
 
-See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for details. AWS_SSR is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
+See the [wiki](https://github.com/dreamboxlearning/aws_see_spots_run/wiki) for details. aws_ssr is officially released [on the chef supermarket](https://supermarket.chef.io/cookbooks/aws_see_spots_run).
 
 ## Requirements
 ### Chef
@@ -18,12 +18,12 @@ See the [wiki](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki) for d
 * CentOS, Red Hat, Fedora, Amazon Linux
 
 ## Attributes
-Extended info on the [Cookbook details wiki page](https://github.com/dreamboxlearning/AWS_see_spots_run/wiki/Cookbook-details#attributes-in-attributesdefaultrb).
+Extended info on the [Cookbook details wiki page](https://github.com/dreamboxlearning/aws_see_spots_run/wiki/Cookbook-details#attributes-in-attributesdefaultrb).
 
 Attribute | Description | Type | Default
 ----------|-------------|------|--------
 `['exec_path']` | Path where the scripts will live  | String | `'/usr/local/bin'`
-`['excluded_regions']` | Regions to exclude from SSR management | String | `'cn-north-1 us-gov-west-1'`
+`['excluded_regions']` | Regions to exclude from ssr management | String | `'cn-north-1 us-gov-west-1'`
 `['spot_request_killer']['interval']` | Minutes between runs of `spot_request_killer` | Integer | `2`
 `['spot_request_killer']['minutes_before_stale']` | Minutes before an unfulfilled spot request is considered stale and tested for cancellation |  Integer | `8`
 `['price_monitor']['interval']` | Minutes between runs of `price_monitor` | Integer | `6`
@@ -34,7 +34,7 @@ Attribute | Description | Type | Default
 `['health_enforcer']['min_health_threshold']` | Number of healthy checks required for an AZ to be considered healthy for an ASG (1, 2, or 3) | Integer | `3`
 
 ## Bugs / Development / Contributing
-* Report issues/questions/feature requests on in the [Issues](https://github.com/dreamboxlearning/AWS_see_spots_run/issues) section.
+* Report issues/questions/feature requests on in the [Issues](https://github.com/dreamboxlearning/aws_see_spots_run/issues) section.
 * Feel free to ask questions via email.
 
 Pull requests are welcome!

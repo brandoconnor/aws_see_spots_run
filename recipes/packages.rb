@@ -1,5 +1,5 @@
 #
-# Cookbook Name:: AWS_see_spots_run
+# Cookbook Name:: aws_see_spots_run
 # Recipe:: packages
 #
 # Copyright 2015, DreamBox Learning, Inc.
@@ -26,7 +26,7 @@ python_packages.each do |pkg|
 end
 
 remote_directory 'scripts' do
-  path node['AWS_see_spots_run']['exec_path']
+  path node['aws_see_spots_run']['exec_path']
   files_mode 0755
   files_backup 0
 end

@@ -1,10 +1,10 @@
-# CHANGELOG for AWS_see_spots_run
+# CHANGELOG for aws_see_spots_run
 
 This file is used to list changes made in each version of AWS_see_spots_run.
 
 ## 0.1.0:
 
-* Initial release of AWS_see_spots_run
+* Initial release of aws_see_spots_run
 
 - - -
 Check the [Markdown Syntax Guide](http://daringfireball.net/projects/markdown/syntax) for help with Markdown.

@@ -1,5 +1,5 @@
 #
-# Cookbook Name:: AWS_see_spots_run
+# Cookbook Name:: aws_see_spots_run
 # Recipe:: default
 #
 # Copyright 2014, DreamBox Learning, Inc.
