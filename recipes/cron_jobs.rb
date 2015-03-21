@@ -22,9 +22,9 @@ include_recipe 'aws_see_spots_run::packages'
 exclude_regions = "-e #{node['aws_see_spots_run']['excluded_regions']}"
 exec_path = "#{node['aws_see_spots_run']['exec_path']}/"
 
-cron 'ASG_tagger' do
-  command "#{exec_path}ASG_tagger.py #{exclude_regions} -m #{node['aws_see_spots_run']['ASG_tagger']['min_healthy_AZs']}"
-  minute "*/#{node['aws_see_spots_run']['ASG_tagger']['interval']}"
+cron 'asg_tagger' do
+  command "#{exec_path}asg_tagger.py #{exclude_regions} -m #{node['aws_see_spots_run']['asg_tagger']['min_healthy_AZs']}"
+  minute "*/#{node['aws_see_spots_run']['asg_tagger']['interval']}"
 end
 
 cron 'spot_request_killer' do

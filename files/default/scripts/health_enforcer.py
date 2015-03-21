@@ -39,17 +39,17 @@ def main(args):
                 print_verbose(
                     os.path.basename(__file__), 'info', "Checking %s" % as_group.name)
                 if as_group.load_balancers:
-                    maximize_elb_AZs(elb_conn, as_group, dry_run)
+                    maximize_elb_azs(elb_conn, as_group, dry_run)
                 demand_expiration = get_tag_dict_value(
                     as_group, 'ssr_config')['demand_expiration']
                 healthy_zones = get_healthy_zones(
                     as_group, args.min_health_threshold)
                 if demand_expiration is not False:
                     if demand_expiration < int(time.time()):
-                        if len(healthy_zones) >= get_min_AZs(as_group):
+                        if len(healthy_zones) >= get_min_azs(as_group):
                             print_verbose(os.path.basename(
                                 __file__), 'info', 'Woot! We can move back to spots at original bid price.')
-                            modify_as_group_AZs(
+                            modify_as_group_azs(
                                 as_group, healthy_zones, dry_run)
                             modify_price(
                                 as_group, get_tag_dict_value(as_group, 'ssr_config')['original_bid'], dry_run)
@@ -62,7 +62,9 @@ def main(args):
                             print_verbose(os.path.basename(
                                 __file__), 'info', "Looking at %s instances for potential termination" % str(len(as_group.instances)))
                             for instance in as_group.instances:
-                                if not [i for i in all_ec2_instances if i.instances[0].id == instance.instance_id][0].instances[0].spot_instance_request_id and not dry_run:
+                                if not [i for i in all_ec2_instances if
+                                        i.instances[0].id == instance.instance_id][0].instances[0].spot_instance_request_id and \
+                                        not dry_run:
                                     terminate_instance(instance)
                         else:
                             print_verbose(os.path.basename(
@@ -74,14 +76,14 @@ def main(args):
                     as_group = reload_as_group(as_group)
                     print_verbose(
                         os.path.basename(__file__), 'info', "Healthy zones and zones in use dont match")
-                    if len(healthy_zones) >= get_min_AZs(as_group):
+                    if len(healthy_zones) >= get_min_azs(as_group):
                         print_verbose(
                             os.path.basename(__file__), 'info', 'Modifying zones accordingly.')
-                        modify_as_group_AZs(as_group, healthy_zones, dry_run)
+                        modify_as_group_azs(as_group, healthy_zones, dry_run)
 
                     else:
                         print_verbose(os.path.basename(
-                            __file__), 'info', "Bid will need to be modified as we can't meet AZ minimum of %s" % str(get_min_AZs(as_group)))
+                            __file__), 'info', "Bid will need to be modified as we can't meet AZ minimum of %s" % str(get_min_azs(as_group)))
                         best_bid = find_best_bid_price(as_group)
                         print_verbose(os.path.basename(
                             __file__), 'info', "Best possible bid given AZ minimum is %s" % str(best_bid))
@@ -94,7 +96,7 @@ def main(args):
                                 as_group, None, dry_run, minutes_multiplier, args.demand_expiration)
                             set_tag_dict_value(as_group, 'ssr_config', 'demand_expiration', int(
                                 time.time()) + (args.demand_expiration * minutes_multiplier))
-                            modify_as_group_AZs(
+                            modify_as_group_azs(
                                 as_group, get_usable_zones(as_group), dry_run)
                 else:
                     print_verbose(
@@ -125,7 +127,7 @@ def terminate_instance(instance):
         sys.exit(1)
 
 
-def get_min_AZs(as_group):
+def get_min_azs(as_group):
     return int(get_tag_dict_value(as_group, 'ssr_config')['min_AZs'])
 
 
@@ -141,12 +143,13 @@ def find_best_bid_price(as_group):
             raise Exception("Different number of AZs found than expected. Prices = %s\nAZs = %s" % (
                 str(prices), str(get_usable_zones(as_group))))
         best_bid = sorted(prices, key=lambda price: price.price)[
-            int(get_min_AZs(as_group)) - 1].price
+            int(get_min_azs(as_group)) - 1].price
         print_verbose(
             os.path.basename(__file__), 'info', 'best_bid=', best_bid)
         max_bid = get_max_bid(as_group)
         print_verbose(os.path.basename(__file__), 'info', 'max_bid=', max_bid)
-        if get_rounded_price(best_bid) >= get_rounded_price(max_bid) or get_rounded_price(get_bid(as_group)) >= get_rounded_price(get_ondemand_price(get_launch_config(as_group))):
+        if get_rounded_price(best_bid) >= get_rounded_price(max_bid) or \
+                get_rounded_price(get_bid(as_group)) >= get_rounded_price(get_ondemand_price(get_launch_config(as_group))):
             # since ondemand instances are faster to spin up and more
             # available, if demand and max_bid are equal, ondemand should win
             # out.
@@ -173,15 +176,15 @@ def get_max_bid(as_group):
 
 
 def get_healthy_zones(as_group, min_health_threshold):
-    AZ_status = get_tag_dict_value(as_group, 'AZ_status')
+    az_status = get_tag_dict_value(as_group, 'AZ_status')
     zone_prefix = as_group.availability_zones[0][:-1]
-    return [zone_prefix + t for t in AZ_status if AZ_status[t]['use'] and AZ_status[t]['health'].count(0) >= min_health_threshold]
+    return [zone_prefix + t for t in az_status if az_status[t]['use'] and az_status[t]['health'].count(0) >= min_health_threshold]
 
 
 def get_usable_zones(as_group):
-    AZ_status = get_tag_dict_value(as_group, 'AZ_status')
+    az_status = get_tag_dict_value(as_group, 'AZ_status')
     zone_prefix = as_group.availability_zones[0][:-1]
-    return [zone_prefix + t for t in AZ_status if AZ_status[t]['use']]
+    return [zone_prefix + t for t in az_status if az_status[t]['use']]
 
 
 def modify_price(as_group, new_bid, dry_run, minutes_multiplier=None, demand_expiration=None):
@@ -230,7 +233,7 @@ def modify_price(as_group, new_bid, dry_run, minutes_multiplier=None, demand_exp
                 if not new_bid:
                     set_tag_dict_value(as_group, 'ssr_config', 'demand_expiration', int(
                         time.time()) + (demand_expiration * minutes_multiplier))
-                    modify_as_group_AZs(
+                    modify_as_group_azs(
                         as_group, get_usable_zones(as_group), dry_run)
 
         print_verbose(os.path.basename(__file__), 'info',
@@ -244,7 +247,7 @@ def modify_price(as_group, new_bid, dry_run, minutes_multiplier=None, demand_exp
         sys.exit(1)
 
 
-def maximize_elb_AZs(elb_conn, as_group, dry_run):
+def maximize_elb_azs(elb_conn, as_group, dry_run):
     try:
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)[0]
@@ -262,7 +265,7 @@ def maximize_elb_AZs(elb_conn, as_group, dry_run):
         sys.exit(1)
 
 
-def modify_as_group_AZs(as_group, healthy_zones, dry_run):
+def modify_as_group_azs(as_group, healthy_zones, dry_run):
     try:
         as_group = reload_as_group(as_group)
         as_group.availability_zones = healthy_zones
@@ -276,7 +279,7 @@ def modify_as_group_AZs(as_group, healthy_zones, dry_run):
             print_verbose(
                 os.path.basename(__file__), 'info', 'Pausing for aws throttling...')
             time.sleep(1)
-        modify_as_group_AZs(as_group, healthy_zones)
+        modify_as_group_azs(as_group, healthy_zones, dry_run)
     except Exception as e:
         handle_exception(e)
         sys.exit(1)

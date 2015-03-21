@@ -11,8 +11,8 @@ default['aws_see_spots_run']['spot_request_killer']['minutes_before_stale'] = 8
 
 default['aws_see_spots_run']['price_monitor']['interval'] = 6
 
-default['aws_see_spots_run']['ASG_tagger']['interval'] = 30
-default['aws_see_spots_run']['ASG_tagger']['min_healthy_AZs'] = 1
+default['aws_see_spots_run']['asg_tagger']['interval'] = 30
+default['aws_see_spots_run']['asg_tagger']['min_healthy_AZs'] = 1
 
 default['aws_see_spots_run']['health_enforcer']['interval'] = 10
 default['aws_see_spots_run']['health_enforcer']['demand_expiration'] = 50

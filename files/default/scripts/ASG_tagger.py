@@ -14,7 +14,7 @@ import boto
 from boto.exception import BotoServerError, EC2ResponseError
 
 from aws_ssr_common import (create_tag, dry_run_necessaries, get_bid,
-                            get_launch_config, get_potential_AZs,
+                            get_launch_config, get_potential_azs,
                             get_tag_dict_value, handle_exception,
                             print_verbose)
 
@@ -31,17 +31,17 @@ def main(args):
             as_conn = boto.ec2.autoscale.connect_to_region(region)
 
             all_groups = as_conn.get_all_groups()
-            spot_LCs = [
+            spot_lcs = [
                 e for e in as_conn.get_all_launch_configurations() if e.spot_price]
             # these need to be pulled from the same all_groups list or
             # duplicate objects will be seen as distinct.
-            spot_LC_groups = [
-                g for g in all_groups if g.launch_config_name in [s.name for s in spot_LCs]]
+            spot_lc_groups = [
+                g for g in all_groups if g.launch_config_name in [s.name for s in spot_lcs]]
             previously_ssr_managed_groups = [g for g in all_groups if get_tag_dict_value(
                 g, 'ssr_config') and get_tag_dict_value(g, 'ssr_config')['enabled'] is True]
 
             all_groups = list(
-                set(spot_LC_groups + previously_ssr_managed_groups))
+                set(spot_lc_groups + previously_ssr_managed_groups))
             for as_group in all_groups:
                 print_verbose(
                     os.path.basename(__file__), 'info', "Evaluating %s" % as_group.name)
@@ -52,7 +52,7 @@ def main(args):
                     print_verbose(os.path.basename(
                         __file__), 'info', 'Tags not found or reset tags option flagged. Adding all tags anew now.')
                     init_ssr_config_tag(as_group, args.min_healthy_AZs)
-                    init_AZ_status_tag(as_group)
+                    init_az_status_tag(as_group)
 
                 elif [t for t in as_group.tags if t.key == 'ssr_config' and not get_tag_dict_value(as_group, 'ssr_config')['enabled']]:
                     print_verbose(
@@ -64,7 +64,8 @@ def main(args):
                     config_keys = [
                         'enabled', 'original_bid', 'LC_name', 'min_AZs', 'demand_expiration']
 
-                    if not verify_tag_dict_keys(as_group, 'ssr_config', config_keys) or not get_tag_dict_value(as_group, 'ssr_config')['LC_name'] == as_group.launch_config_name[-155:]:
+                    if not verify_tag_dict_keys(as_group, 'ssr_config', config_keys) or \
+                            not get_tag_dict_value(as_group, 'ssr_config')['LC_name'] == as_group.launch_config_name[-155:]:
                         # this would indicate a change to the LC outside of ssr
                         # scope. In that case, we need to disable ssr via tag
                         # deletion.
@@ -76,7 +77,7 @@ def main(args):
 
                     zones = [z.name[-1] for z in ec2_conn.get_all_zones()]
                     if not verify_tag_dict_keys(as_group, 'AZ_status', zones):
-                        init_AZ_status_tag(as_group)
+                        init_az_status_tag(as_group)
 
                 else:
                     raise Exception(
@@ -102,12 +103,12 @@ def del_ssr_tags(as_group):
     return as_group.connection.delete_tags([t for t in as_group.tags if t.key == 'AZ_status' or t.key == 'ssr_config'])
 
 
-def init_ssr_config_tag(as_group, min_healthy_AZs):
+def init_ssr_config_tag(as_group, min_healthy_azs):
     try:
         config_dict = {
             'enabled': True,
             'original_bid': get_bid(as_group),
-            'min_AZs': min_healthy_AZs,
+            'min_AZs': min_healthy_azs,
             # LC name size can be up to 255 chars (also tag value max length).
             # Final chars should be unique so we cut this short
             'LC_name': as_group.launch_config_name[-155:],
@@ -119,9 +120,9 @@ def init_ssr_config_tag(as_group, min_healthy_AZs):
         sys.exit(1)
 
 
-def init_AZ_status_tag(as_group):
+def init_az_status_tag(as_group):
     try:
-        potential_zones = get_potential_AZs(as_group)
+        potential_zones = get_potential_azs(as_group)
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
         all_zones = ec2_conn.get_all_zones()
         zone_dict = {}

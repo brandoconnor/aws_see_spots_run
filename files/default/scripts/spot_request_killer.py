@@ -13,7 +13,7 @@ import boto.ec2
 from boto.exception import BotoServerError, EC2ResponseError
 
 from aws_ssr_common import (dry_run_necessaries, handle_exception,
-                            print_verbose, set_new_AZ_status_tag,
+                            print_verbose, set_new_az_status_tag,
                             throttle_response, update_tags)
 
 
@@ -59,14 +59,14 @@ def main(args):
                         launch_config = launch_configs[0]
                     offending_as_groups = [
                         g for g in as_groups if g.launch_config_name == launch_config.name]
-                    bad_AZ = request.launch_group.split(
+                    bad_az = request.launch_group.split(
                         request.region.name)[1][0]
-                    health_dict = {bad_AZ: 1}
+                    health_dict = {bad_az: 1}
                     for as_group in offending_as_groups:
                         print_verbose(os.path.basename(
                             __file__), 'info', "The following AZ will be tagged as an offender: %s." % str(as_group))
                         health_tags.append(
-                            set_new_AZ_status_tag(as_group, health_dict))
+                            set_new_az_status_tag(as_group, health_dict))
                     print_verbose(os.path.basename(
                         __file__), 'info', "Killing spot request %s." % str(request.id))
                     if not args.dry_run:

@@ -110,7 +110,8 @@ def create_tag(as_group, key, value):
 def get_tag_dict_value(as_group, tag_key):
     try:
         return ast.literal_eval([t for t in as_group.tags if t.key == tag_key][0].value)
-    except:
+    except Exception as e:
+        handle_exception(e)
         return False  # this value needs to be tested each time
 
 
@@ -129,7 +130,7 @@ def get_bid(as_group):
         sys.exit(1)
 
 
-def set_new_AZ_status_tag(as_group, health_dict):
+def set_new_az_status_tag(as_group, health_dict):
     try:
         health_values = get_tag_dict_value(as_group, 'AZ_status')
         for k, v in health_dict.items():
@@ -186,7 +187,7 @@ def get_current_spot_prices(as_group):
         sys.exit(1)
 
 
-def get_potential_AZs(as_group):
+def get_potential_azs(as_group):
     try:
         ec2_conn = boto.ec2.connect_to_region(as_group.connection.region.name)
         all_zones = ec2_conn.get_all_zones()

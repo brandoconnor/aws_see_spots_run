@@ -4,7 +4,6 @@
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
     -   id: check-added-large-files
-    -   id: check-json
     -   id: autopep8-wrapper
     -   id: flake8
         args: [ "--max-line-length=200" ]
@@ -12,3 +11,8 @@
     sha: b7f5d468c67c3c4a6ea7cdf68c40778095b0f19b
     hooks:
     -   id: python-import-sorter
+-   repo: git://github.com/pricematch/mirrors-rubocop
+    sha: b25bebf1c6cb45d4f33e431483885b917ab20fa8
+    hooks:
+    -   id: rubocop
+        args: [ "--except","Metrics/LineLength" ]
