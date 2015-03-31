@@ -12,5 +12,5 @@ platforms:
 suites:
   - name: default
     run_list:
-      - recipe[AWS_see_spots_run::default]
+      - recipe[aws_see_spots_run::default]
     attributes:
