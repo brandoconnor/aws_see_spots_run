@@ -13,13 +13,12 @@ from math import ceil
 import boto
 import demjson
 import requests
-from boto.ec2.autoscale import LaunchConfiguration
-from boto.exception import BotoServerError, EC2ResponseError
-
 from aws_ssr_common import (create_tag, dry_run_necessaries, get_bid,
                             get_current_spot_prices, get_launch_config,
                             get_ssr_groups, get_tag_dict_value,
                             handle_exception, print_verbose, throttle_response)
+from boto.ec2.autoscale import LaunchConfiguration
+from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):

@@ -11,12 +11,11 @@ import os
 import sys
 
 import boto
-from boto.exception import BotoServerError, EC2ResponseError
-
 from aws_ssr_common import (create_tag, dry_run_necessaries, get_bid,
                             get_launch_config, get_potential_azs,
                             get_tag_dict_value, handle_exception,
                             print_verbose)
+from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):
