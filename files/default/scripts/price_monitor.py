@@ -8,12 +8,11 @@ import os
 import sys
 
 import boto
-from boto.exception import EC2ResponseError
-
 from aws_ssr_common import (dry_run_necessaries, get_bid,
                             get_current_spot_prices, get_ssr_groups,
                             handle_exception, print_verbose,
                             set_new_az_status_tag, update_tags)
+from boto.exception import EC2ResponseError
 
 
 def main(args):

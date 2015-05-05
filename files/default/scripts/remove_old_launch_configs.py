@@ -7,10 +7,9 @@ import os
 import sys
 
 import boto
-from boto.exception import BotoServerError
-
 from aws_ssr_common import (dry_run_necessaries, handle_exception,
                             print_verbose, throttle_response)
+from boto.exception import BotoServerError
 
 
 def main(args):

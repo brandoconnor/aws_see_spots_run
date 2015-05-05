@@ -10,11 +10,10 @@ import sys
 from datetime import datetime, timedelta
 
 import boto.ec2
-from boto.exception import BotoServerError, EC2ResponseError
-
 from aws_ssr_common import (dry_run_necessaries, handle_exception,
                             print_verbose, set_new_az_status_tag,
                             throttle_response, update_tags)
+from boto.exception import BotoServerError, EC2ResponseError
 
 
 def main(args):
