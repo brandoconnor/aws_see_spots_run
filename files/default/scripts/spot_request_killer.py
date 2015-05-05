@@ -44,6 +44,10 @@ def main(args):
                 item for sublist in pending_requests for item in sublist]
             health_tags = []
             for request in pending_requests:
+                if any('ElasticMapReduce' in sec_group.name for sec_group in request.launch_specification.groups):
+                    print_verbose(os.path.basename(
+                        __file__), 'info', "This request belongs to the ElasticMapReduce group and will not be SSR managed.")
+                    continue
                 if oldest_time > datetime.strptime(request.create_time, "%Y-%m-%dT%H:%M:%S.000Z"):
                     print_verbose(os.path.basename(
                         __file__), 'info', "Bad request found. Identifying LC and associated ASGs to tag AZ health.")
