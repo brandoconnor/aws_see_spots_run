@@ -5,6 +5,7 @@ Evaluates health tags and makes decisions to remove AZs, alter the bid, move to 
 import argparse
 import os
 import random
+import re
 import string
 import sys
 import time
@@ -13,12 +14,14 @@ from math import ceil
 import boto
 import demjson
 import requests
+from boto.ec2.autoscale import LaunchConfiguration
+from boto.exception import BotoServerError, EC2ResponseError
+
 from aws_ssr_common import (create_tag, dry_run_necessaries, get_bid,
                             get_current_spot_prices, get_launch_config,
                             get_ssr_groups, get_tag_dict_value,
-                            handle_exception, print_verbose, throttle_response)
-from boto.ec2.autoscale import LaunchConfiguration
-from boto.exception import BotoServerError, EC2ResponseError
+                            handle_exception, mark_asg_az_disabled,
+                            print_verbose, throttle_response, update_tags)
 
 
 def main(args):
@@ -99,7 +102,7 @@ def main(args):
                                 as_group, get_usable_zones(as_group), dry_run)
                 else:
                     print_verbose(
-                        os.path.basename(__file__), 'info', 'No actions to take on this ASG.')
+                        os.path.basename(__file__), 'info', 'No further actions to take on this ASG.')
             print_verbose(
                 os.path.basename(__file__), 'info', 'Done with pass on %s' % region)
 
@@ -248,16 +251,42 @@ def modify_price(as_group, new_bid, dry_run, minutes_multiplier=None, demand_exp
 
 def maximize_elb_azs(elb_conn, as_group, dry_run):
     try:
+        this_file = os.path.basename(__file__)
         for elb_name in as_group.load_balancers:
             elb = elb_conn.get_all_load_balancers(elb_name)[0]
             if not sorted(elb.availability_zones) == sorted(get_usable_zones(as_group)):
                 print_verbose(os.path.basename(
                     __file__), 'info', "AZs for ELB don't include all potential AZs. Removing unusable zones and adding the rest now.")
                 if not dry_run:
-                    if len(list(set(elb.availability_zones) - set(get_usable_zones(as_group)))) > 0:
-                        elb.disable_zones(
-                            list(set(elb.availability_zones) - set(get_usable_zones(as_group))))
-                    elb.enable_zones(get_usable_zones(as_group))
+                    if len(list(set(elb.availability_zones) - set(get_usable_zones(as_group)))) > 0 or len(list(set(get_usable_zones(as_group)) - set(elb.availability_zones))) > 0:
+                        in_lb_but_not_asg = list(
+                            set(elb.availability_zones) - set(get_usable_zones(as_group)))
+                        in_asg_but_not_lb = list(
+                            set(get_usable_zones(as_group)) - set(elb.availability_zones))
+                        if len(in_asg_but_not_lb) > 0 or len(in_lb_but_not_asg) > 0:
+                            try:
+                                if len(list(set(elb.availability_zones) - set(get_usable_zones(as_group)))) > 0:
+                                    elb.disable_zones(
+                                        list(set(elb.availability_zones) - set(get_usable_zones(as_group))))
+                                elb.enable_zones(get_usable_zones(as_group))
+                            except Exception as e:
+                                if e.error_code == 'ValidationError' and 'is constrained and cannot be used together with' in e.message:
+                                    print_verbose(
+                                        this_file, 'info', 'Conflict found between two AZs. Removing one of them from use.')
+                                    pattern = re.compile(
+                                        r'\b\w{2}-\w{4,}-\d\w and \w{2}-\w{4,}-\d\w\b')
+                                    match = pattern.search(e.message)
+                                    if match:
+                                        bad_az = match.group().split()[0].split(
+                                            '-')[-1][1]
+                                        print_verbose(
+                                            this_file, 'info', 'Removing %s from potential AZs as it confilcts with another AZ.' % bad_az)
+                                        # smarter here would be to figure out
+                                        # which AZ is a better choice
+                                        new_tag = mark_asg_az_disabled(
+                                            as_group, bad_az)
+                                        update_tags(
+                                            as_group.connection, [new_tag])
 
     except Exception as e:
         handle_exception(e)

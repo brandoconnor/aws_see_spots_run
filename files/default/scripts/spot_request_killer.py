@@ -10,14 +10,16 @@ import sys
 from datetime import datetime, timedelta
 
 import boto.ec2
-from aws_ssr_common import (dry_run_necessaries, handle_exception,
-                            print_verbose, set_new_az_status_tag,
-                            throttle_response, update_tags)
 from boto.exception import BotoServerError, EC2ResponseError
+
+from aws_ssr_common import (dry_run_necessaries, handle_exception,
+                            print_verbose, throttle_response,
+                            update_az_health_list_tag, update_tags)
 
 
 def main(args):
     (verbose, dry_run) = dry_run_necessaries(args.dry_run, args.verbose)
+    this_file = os.path.basename(__file__)
     for region in [r.name for r in boto.ec2.regions() if r.name not in args.excluded_regions]:
         try:
             ec2_conn = boto.ec2.connect_to_region(region)
@@ -44,12 +46,12 @@ def main(args):
             health_tags = []
             for request in pending_requests:
                 if any('ElasticMapReduce' in sec_group.name for sec_group in request.launch_specification.groups):
-                    print_verbose(os.path.basename(
-                        __file__), 'info', "This request belongs to the ElasticMapReduce group and will not be SSR managed.")
+                    print_verbose(
+                        this_file, 'info', "This request belongs to the ElasticMapReduce group and will not be SSR managed.")
                     continue
                 if oldest_time > datetime.strptime(request.create_time, "%Y-%m-%dT%H:%M:%S.000Z"):
-                    print_verbose(os.path.basename(
-                        __file__), 'info', "Bad request found. Identifying LC and associated ASGs to tag AZ health.")
+                    print_verbose(
+                        this_file, 'info', "Bad request found. Identifying LC and associated ASGs to tag AZ health.")
                     launch_configs = [lc for lc in all_spot_lcs if
                                       request.price == lc.spot_price and
                                       request.launch_specification.instance_type == lc.instance_type and
@@ -66,23 +68,22 @@ def main(args):
                         request.region.name)[1][0]
                     health_dict = {bad_az: 1}
                     for as_group in offending_as_groups:
-                        print_verbose(os.path.basename(
-                            __file__), 'info', "The following AZ will be tagged as an offender: %s." % str(as_group))
+                        print_verbose(
+                            this_file, 'info', "The following AZ will be tagged as an offender: %s." % str(as_group))
                         health_tags.append(
-                            set_new_az_status_tag(as_group, health_dict))
-                    print_verbose(os.path.basename(
-                        __file__), 'info', "Killing spot request %s." % str(request.id))
+                            update_az_health_list_tag(as_group, health_dict))
+                    print_verbose(
+                        this_file, 'info', "Killing spot request %s." % str(request.id))
                     if not args.dry_run:
                         request.cancel()
                         update_tags(as_conn, health_tags)
                     else:
-                        print_verbose(
-                            os.path.basename(__file__), 'info', "PSYCH! Dry run.")
+                        print_verbose(this_file, 'info', "PSYCH! Dry run.")
                 else:
-                    print_verbose(os.path.basename(__file__), 'info', "Request %s not older than %s minutes. Continuing..." % (
+                    print_verbose(this_file, 'info', "Request %s not older than %s minutes. Continuing..." % (
                         request.id, str(args.minutes)))
             print_verbose(
-                os.path.basename(__file__), 'info', "Region %s pass complete." % region)
+                this_file, 'info', "Region %s pass complete." % region)
 
         except EC2ResponseError as e:
             handle_exception(e)
@@ -91,7 +92,7 @@ def main(args):
             handle_exception(e)
             sys.exit(1)
 
-    print_verbose(os.path.basename(__file__), 'info', "All regions complete")
+    print_verbose(this_file, 'info', "All regions complete")
 
 
 def get_all_as_groups(as_conn):

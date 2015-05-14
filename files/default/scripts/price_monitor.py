@@ -8,11 +8,12 @@ import os
 import sys
 
 import boto
+from boto.exception import EC2ResponseError
+
 from aws_ssr_common import (dry_run_necessaries, get_bid,
                             get_current_spot_prices, get_ssr_groups,
                             handle_exception, print_verbose,
-                            set_new_az_status_tag, update_tags)
-from boto.exception import EC2ResponseError
+                            update_az_health_list_tag, update_tags)
 
 
 def main(args):
@@ -38,7 +39,7 @@ def main(args):
                         else:
                             health_dict[price.availability_zone[-1]] = 0
                     health_tags.append(
-                        set_new_az_status_tag(as_group, health_dict))
+                        update_az_health_list_tag(as_group, health_dict))
             if health_tags and not dry_run:
                 update_tags(as_conn, health_tags)
                 print_verbose(

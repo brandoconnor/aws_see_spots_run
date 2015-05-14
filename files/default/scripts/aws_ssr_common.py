@@ -49,7 +49,6 @@ def print_verbose(filename, log_lvl, *args):
 
 
 def handle_exception(exception):
-    # verbose = True  #XXX is this needed?
     exc_traceback = sys.exc_info()[2]
     print_verbose(os.path.basename(__file__), 'err', "Exception caught on line %s of %s: %s" %
                   (exc_traceback.tb_lineno, exc_traceback.tb_frame.f_code.co_filename, str(exception)))
@@ -130,12 +129,25 @@ def get_bid(as_group):
         sys.exit(1)
 
 
-def set_new_az_status_tag(as_group, health_dict):
+def update_az_health_list_tag(as_group, health_dict):
     try:
         health_values = get_tag_dict_value(as_group, 'AZ_status')
         for k, v in health_dict.items():
             health_values[k]['health'].pop()
             health_values[k]['health'].insert(0, v)
+        print_verbose(os.path.basename(__file__), 'info', health_values)
+        tag = Tag(
+            key='AZ_status', value=health_values, resource_id=as_group.name)
+        return tag
+    except Exception as e:
+        handle_exception(e)
+        sys.exit(1)
+
+
+def mark_asg_az_disabled(as_group, zone):
+    try:
+        health_values = get_tag_dict_value(as_group, 'AZ_status')
+        health_values[zone]['use'] = False
         print_verbose(os.path.basename(__file__), 'info', health_values)
         tag = Tag(
             key='AZ_status', value=health_values, resource_id=as_group.name)
