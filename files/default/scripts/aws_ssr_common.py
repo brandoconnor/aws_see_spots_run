@@ -108,7 +108,11 @@ def create_tag(as_group, key, value):
 
 def get_tag_dict_value(as_group, tag_key):
     try:
-        return ast.literal_eval([t for t in as_group.tags if t.key == tag_key][0].value)
+        tag_list = [t for t in as_group.tags if t.key == tag_key]
+        if len(tag_list) > 0:
+            return ast.literal_eval(tag_list[0].value)
+        else:
+            return False
     except Exception as e:
         handle_exception(e)
         return False  # this value needs to be tested each time
